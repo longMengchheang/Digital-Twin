@@ -1,0 +1,91 @@
+body {
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: hsl(210 25% 8%); /* Dark navy background */
+  color: hsl(210 40% 98%); /* Off-white text */
+}
+
+.sidebar {
+  width: 256px;
+  background-color: hsl(210 25% 11%); /* Slightly lighter navy */
+  border-right: 1px solid hsl(210 25% 16%); /* Medium navy border */
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.5s ease-out forwards;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-100px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.logo {
+  padding: 24px;
+}
+
+.logo h1 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+  color: hsl(84 81% 44%); /* Vibrant lime green */
+}
+
+.nav-menu {
+  flex: 1;
+  padding: 0 16px;
+}
+
+.nav-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  text-align: left;
+  margin-bottom: 8px;
+  transition: all 0.2s;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  color: hsl(210 15% 65%); /* Muted text by default */
+}
+
+.nav-button:hover {
+  transform: scale(1.02);
+  background-color: hsl(210 25% 16%); /* Medium navy */
+  color: hsl(210 40% 98%); /* Off-white */
+}
+
+.nav-button:active {
+  transform: scale(0.98);
+}
+
+.nav-button.active {
+  background-color: hsla(84 81% 44% / 0.1); /* 10% opacity lime green */
+  border: 2px solid hsl(84 81% 44%); /* Lime green border */
+  color: hsl(84 81% 44%); /* Lime green text */
+}
+
+.nav-button .icon {
+  width: 20px;
+  height: 20px;
+}
+
+.nav-button.active .icon {
+  color: hsl(84 81% 44%); /* Lime green */
+}
+
+.nav-button .text {
+  font-size: 14px;
+  font-weight: 500;
+}

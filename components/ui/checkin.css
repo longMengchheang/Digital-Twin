@@ -1,0 +1,244 @@
+body {
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: hsl(210, 25%, 8%);
+  color: hsl(210, 40%, 98%);
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Sidebar styles (should match your sidebar component) */
+.sidebar {
+  width: 256px;
+  background-color: hsl(210, 25%, 11%);
+  border-right: 1px solid hsl(210, 25%, 16%);
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+}
+
+/* Main content area */
+.main-content {
+  margin-left: 256px; /* Same as sidebar width */
+  flex: 1;
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+/* Check-in card styles */
+.card {
+  background-color: hsl(210, 25%, 11%);
+  border: 1px solid hsl(210, 25%, 16%);
+  border-radius: 8px;
+  width: 100%;
+  max-width: 500px;
+  padding: 24px;
+  box-shadow: 0 4px 6px hsla(0, 0%, 0%, 0.1);
+  animation: fadeInUp 0.5s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.card-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: hsl(210, 40%, 98%);
+  margin: 0;
+}
+
+.card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.question {
+  text-align: center;
+  font-size: 1.125rem;
+  color: hsl(210, 15%, 65%);
+  margin-bottom: 16px;
+}
+
+.stars-container {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.star-button {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.star-button:hover {
+  transform: scale(1.1);
+}
+
+.star-button:active {
+  transform: scale(0.9);
+}
+
+.star-button.disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.star-icon {
+  width: 32px;
+  height: 32px;
+  color: hsl(210, 15%, 65%);
+}
+
+.star-icon.filled {
+  color: hsl(48, 96%, 50%);
+  fill: hsl(48, 96%, 50%);
+}
+
+.rating-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  color: hsl(210, 15%, 65%);
+}
+
+.submit-button {
+  width: 100%;
+  background-color: hsl(84, 81%, 44%);
+  color: hsl(210, 25%, 8%);
+  border: none;
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 1rem;
+}
+
+.submit-button:hover {
+  background-color: hsla(84, 81%, 44%, 0.9);
+}
+
+.submit-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.completed-message {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: hsl(84, 81%, 44%);
+  font-weight: 500;
+  animation: scaleIn 0.3s ease-out;
+  text-align: center;
+  margin: 20px 0;
+}
+
+.results-container {
+  display: none;
+  flex-direction: column;
+  gap: 20px;
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.check-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.progress-indicator {
+  text-align: center;
+  color: hsl(210, 15%, 65%);
+  font-size: 0.875rem;
+  margin-bottom: 16px;
+}
+
+.overall-score {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: hsl(210, 40%, 98%);
+  margin: 16px 0;
+  text-align: center;
+}
+
+.score-detail {
+  font-size: 1rem;
+  color: hsl(210, 15%, 65%);
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.score-meter {
+  width: 100%;
+  height: 12px;
+  background-color: hsl(210, 25%, 16%);
+  border-radius: 6px;
+  margin: 20px 0;
+  overflow: hidden;
+}
+
+.score-progress {
+  height: 100%;
+  background: linear-gradient(90deg, hsl(0, 70%, 50%), hsl(48, 96%, 50%), hsl(84, 81%, 44%));
+  transition: width 0.5s ease-out;
+}
+
+.response-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid hsl(210, 25%, 16%);
+}
+
+.response-question {
+  color: hsl(210, 15%, 65%);
+  flex: 1;
+}
+
+.response-rating {
+  color: hsl(48, 96%, 50%);
+  font-weight: 500;
+  min-width: 60px;
+  text-align: right;
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
