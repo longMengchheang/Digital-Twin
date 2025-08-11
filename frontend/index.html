@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digital Twin</title>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="./ui/sidebar.css">
+  <link rel="stylesheet" href="./ui/checkin.css">
+  <link rel="stylesheet" href="./ui/quest.css">
+  <link rel="stylesheet" href="./ui/chat.css">
+  <link rel="stylesheet" href="./ui/history.css">
+  <link rel="stylesheet" href="./ui/profile.css">
+  <link rel="stylesheet" href="./ui/insight.css">
+</head>
+<body>
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="logo">
+      <h1>Digital Twin</h1>
+    </div>
+    <nav class="nav-menu">
+      <button class="nav-button active" onclick="showSection('checkin')">
+        <i class="icon" data-lucide="home" style="color: hsl(48 96% 50%);"></i>
+        <span class="text">DAILY CHECK IN</span>
+      </button>
+      <button class="nav-button" onclick="showSection('quest')">
+        <i class="icon" data-lucide="target" style="color: hsl(350, 100%, 70%);"></i>
+        <span class="text">QUESTS</span>
+      </button>
+      <button class="nav-button" onclick="showSection('chat')">
+        <i class="icon" data-lucide="message-circle" style="color: hsl(84 81% 44%);"></i>
+        <span class="text">CHAT</span>
+      </button>
+      <button class="nav-button" onclick="showSection('history')">
+        <i class="icon" data-lucide="history" style="color: hsl(210 40% 98%);"></i>
+        <span class="text">HISTORY</span>
+      </button>
+      <button class="nav-button" onclick="showSection('insights')">
+        <i class="icon" data-lucide="bar-chart-2" style="color: hsl(262 83% 58%);"></i>
+        <span class="text">INSIGHTS</span>
+      </button>
+      <button class="nav-button" onclick="showSection('profile')">
+        <i class="icon" data-lucide="user" style="color: hsl(218 91% 60%);"></i>
+        <span class="text">PROFILE</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Main content area -->
+  <div class="main-content" id="main-content"></div>
+  
+  <script>
+    function showSection(sectionId) {
+      const mainContent = document.getElementById('main-content');
+      if (!mainContent) {
+        console.error('Main content element not found');
+        return;
+      }
+      
+      console.log(`Attempting to load section: ./sections/${sectionId}.html`);
+      fetch(`./sections/${sectionId}.html`)
+        .then(response => {
+          console.log(`Fetch response for ${sectionId}: ${response.status} ${response.statusText}`);
+          if (!response.ok) {
+            throw new Error(`Failed to load ${sectionId}.html: ${response.status} ${response.statusText}`);
+          }
+          return response.text();
+        })
+        .then(html => {
+          console.log(`Successfully loaded ${sectionId}`);
+          mainContent.innerHTML = html;
+          lucide.createIcons();
+          
+          // Initialize section-specific logic after a small delay
+          setTimeout(() => {
+            if (sectionId === 'checkin' && typeof initializeCheckIn === 'function') {
+              console.log('Initializing checkin...');
+              initializeCheckIn();
+            } else if (sectionId === 'quest' && typeof initializeQuests === 'function') {
+              console.log('Initializing quest...');
+              initializeQuests();
+            } else if (sectionId === 'chat' && typeof initializeChat === 'function') {
+              console.log('Initializing chat...');
+              initializeChat();
+            } else if (sectionId === 'history' && typeof initializeHistory === 'function') {
+              console.log('Initializing history...');
+              initializeHistory();
+            } else if (sectionId === 'profile' && typeof initializeProfile === 'function') {
+              console.log('Initializing profile...');
+              initializeProfile();
+            } else {
+              console.warn(`No initialization function found for ${sectionId}`);
+            }
+            
+            // Refresh icons after initialization
+            lucide.createIcons();
+          }, 50);
+        })
+        .catch(error => {
+          console.error('Error loading section:', error);
+          mainContent.innerHTML = `
+            <p>Error loading section: ${error.message}. Please check if ./sections/${sectionId}.html exists and try again.</p>
+          `;
+        });
+
+      // Update active button styling
+      document.querySelectorAll('.nav-button').forEach(button => {
+        button.classList.remove('active');
+        const icon = button.querySelector('.icon');
+        const btnSection = button.getAttribute('onclick').match(/'([^']+)'/)[1];
+        const iconColors = {
+          'checkin': 'hsl(48 96% 50%)',
+          'quest': 'hsl(350, 100%, 70%)',
+          'chat': 'hsl(84 81% 44%)',
+          'history': 'hsl(210 40% 98%)',
+          'profile': 'hsl(218 91% 60%)'
+        };
+        icon.style.color = iconColors[btnSection] || 'hsl(210 40% 98%)';
+      });
+      
+      const activeButton = document.querySelector(`.nav-button[onclick="showSection('${sectionId}')"]`);
+      if (activeButton) {
+        activeButton.classList.add('active');
+        activeButton.querySelector('.icon').style.color = 'hsl(84 81% 44%)';
+      } else {
+        console.warn(`No button found for section: ${sectionId}`);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('DOM content loaded, initializing default section: checkin');
+      lucide.createIcons();
+      showSection('checkin');
+    });
+  </script>
+  
+  <!-- Load all logic files -->
+  <script src="./logic/checkin.js"></script>
+  <script src="./logic/quest.js"></script>
+  <script src="./logic/chat.js"></script>
+  <script src="./logic/history.js"></script>
+  <script src="./logic/profile.js"></script>
+  <script src="./logic/insight.js"></script>
+</body>
+</html>

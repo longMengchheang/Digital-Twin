@@ -1,37 +1,80 @@
 // Global state for quests
 let quests = [];
+let questsInitialized = false;
 
-document.addEventListener('DOMContentLoaded', () => {
-  // Initialize Lucide icons
-  lucide.createIcons();
+console.log('quest.js loaded');
+
+// Initialize quest functionality
+function initializeQuests() {
+  if (questsInitialized) return;
+  
+  console.log('Initializing quests...');
   
   // Load quests from localStorage
   loadQuests();
   
   // Set up event listeners
-  document.getElementById('quest-form').addEventListener('submit', handleQuestSubmit);
-  document.getElementById('quest-goal').addEventListener('input', updateGoalLength);
-  document.getElementById('quest-duration').addEventListener('change', updateDurationDisplay);
-});
+  const questForm = document.getElementById('quest-form');
+  if (!questForm) {
+    console.error('Quest form not found');
+    return;
+  }
+  questForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    handleQuestSubmit(e);
+  });
+  
+  const questGoal = document.getElementById('quest-goal');
+  if (!questGoal) {
+    console.error('Quest goal input not found');
+    return;
+  }
+  questGoal.addEventListener('input', updateGoalLength);
+  updateGoalLength(); // Initialize character count
+  
+  const questDuration = document.getElementById('quest-duration');
+  if (!questDuration) {
+    console.error('Quest duration select not found');
+    return;
+  }
+  questDuration.addEventListener('change', updateDurationDisplay);
+  updateDurationDisplay(); // Initialize duration display
+  
+  questsInitialized = true;
+}
 
 // Load quests from localStorage
 function loadQuests() {
+  console.log('Loading quests from localStorage...');
   const savedQuests = localStorage.getItem('quests');
+  
   if (savedQuests) {
-    quests = JSON.parse(savedQuests);
-    renderQuests();
-    renderAchievements();
+    try {
+      quests = JSON.parse(savedQuests);
+      console.log('Loaded quests:', quests);
+      renderQuests();
+      renderAchievements();
+    } catch (e) {
+      console.error('Error parsing quests:', e);
+      quests = [];
+    }
+  } else {
+    console.log('No quests found in localStorage');
+    quests = [];
   }
 }
 
 // Save quests to localStorage
 function saveQuests() {
   localStorage.setItem('quests', JSON.stringify(quests));
+  console.log('Quests saved to localStorage');
 }
 
 // Show toast notification
 function showToast(title, message, type = 'success') {
   const toastContainer = document.getElementById('toast-container');
+  if (!toastContainer) return;
+  
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
   toast.innerHTML = `
@@ -103,6 +146,14 @@ function updateQuestProgress(questId, progress) {
       // Add completion date if just completed
       if (completed && !quest.completedDate) {
         updatedQuest.completedDate = new Date().toISOString();
+        showToast('Quest Completed!', 'Congratulations on completing your quest!');
+        if (typeof confetti === 'function') {
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 }
+          });
+        }
       }
       
       // Remove completion date if un-completed
@@ -118,17 +169,6 @@ function updateQuestProgress(questId, progress) {
   saveQuests();
   renderQuests();
   renderAchievements();
-  
-  if (progress >= 100) {
-    showToast('Quest Completed!', 'Congratulations on completing your quest!');
-    if (typeof confetti === 'function') {
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
-    }
-  }
 }
 
 // Toggle quest completion
@@ -204,9 +244,11 @@ function renderQuests() {
   const activeQuestsList = document.getElementById('active-quests-list');
   const activeQuestsCount = document.getElementById('active-quests-count');
   
-  const activeQuests = quests.filter(quest => !quest.completed);
-  const completedQuests = quests.filter(quest => quest.completed);
+  if (!activeQuestsList || !activeQuestsCount) return;
   
+  const activeQuests = quests.filter(quest => !quest.completed);
+  
+  console.log('Rendering quests:', activeQuests);
   activeQuestsCount.textContent = `${activeQuests.length} Active`;
   
   if (activeQuests.length === 0) {
@@ -223,7 +265,7 @@ function renderQuests() {
     const formattedDate = formatDate(quest.createdAt);
     
     return `
-      <div class="quest-item">
+      <div class="quest-item ${quest.completed ? 'completed' : ''}">
         <div class="quest-header">
           <div class="quest-type">
             <div class="icon-container ${durationDetails.colorClass}">
@@ -236,7 +278,7 @@ function renderQuests() {
           <div class="quest-date">${formattedDate}</div>
         </div>
         
-        <div class="quest-goal">
+        <div class="quest-goal ${quest.completed ? 'completed' : ''}">
           ${quest.goal}
         </div>
         
@@ -254,27 +296,27 @@ function renderQuests() {
         <div class="quest-actions">
           <div class="action-buttons">
             <button class="action-btn" 
-                    onclick="updateQuestProgress('${quest.id}', ${quest.progress + 25})">
+                    onclick="window.updateQuestProgress('${quest.id}', ${quest.progress + 25})">
               +25%
             </button>
             <button class="action-btn" 
-                    onclick="updateQuestProgress('${quest.id}', ${quest.progress + 50})">
+                    onclick="window.updateQuestProgress('${quest.id}', ${quest.progress + 50})">
               +50%
             </button>
           </div>
           
-          <button class="complete-btn" 
-                  onclick="toggleQuestCompletion('${quest.id}')">
+          <button class="complete-btn ${quest.completed ? 'completed' : ''}" 
+                  onclick="window.toggleQuestCompletion('${quest.id}')">
             <i data-lucide="check"></i>
-            Complete
+            ${quest.completed ? 'Undo' : 'Complete'}
           </button>
         </div>
       </div>
     `;
   }).join('');
   
-  // Refresh Lucide icons after rendering
   lucide.createIcons();
+  setTimeout(() => lucide.createIcons(), 50);
 }
 
 // Update achievements display
@@ -283,6 +325,9 @@ function renderAchievements() {
   const achievementsSections = document.getElementById('achievements-sections');
   const achievementsCount = document.getElementById('achievements-count');
   
+  if (!achievementsSections || !achievementsCount) return;
+  
+  console.log('Rendering achievements:', completedQuests);
   achievementsCount.textContent = `${completedQuests.length} Completed`;
   
   if (completedQuests.length === 0) {
@@ -336,10 +381,11 @@ function renderAchievements() {
   
   achievementsSections.innerHTML = sectionsHTML;
   
-  // Refresh Lucide icons after rendering
   lucide.createIcons();
+  setTimeout(() => lucide.createIcons(), 50);
 }
 
 // Make functions available globally
+window.initializeQuests = initializeQuests;
 window.updateQuestProgress = updateQuestProgress;
 window.toggleQuestCompletion = toggleQuestCompletion;

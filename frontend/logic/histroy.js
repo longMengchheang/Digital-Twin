@@ -1,8 +1,7 @@
-// history.js
 document.addEventListener('DOMContentLoaded', function() {
-  // Enhanced mock data with conversation IDs for chat history
+  // Fetch data from localStorage or use mock data as fallback
   const mockData = {
-    chat: [
+    chat: JSON.parse(localStorage.getItem('chatHistory')) || [
       {
         id: 'conv_001',
         title: 'Productivity Strategies',
@@ -20,7 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
         conversationId: 'chat_002'
       }
     ],
-    checkin: [
+    checkin: JSON.parse(localStorage.getItem('checkinHistory')) || [
       {
         id: 'check_001',
         title: 'Morning Reflection',
@@ -36,7 +35,7 @@ document.addEventListener('DOMContentLoaded', function() {
         time: '20:45'
       }
     ],
-    quest: [
+    quest: JSON.parse(localStorage.getItem('questHistory')) || [
       {
         id: 'quest_001',
         title: 'Meditation Challenge',
@@ -67,6 +66,10 @@ document.addEventListener('DOMContentLoaded', function() {
   // Render history entries with different classes for each type
   function renderHistoryEntries(containerId, entries, type) {
     const container = document.getElementById(containerId);
+    if (!container) {
+      console.error(`Container with ID ${containerId} not found`);
+      return;
+    }
     
     if (entries.length === 0) {
       container.innerHTML = '<div class="empty-message">No entries found</div>';
@@ -97,14 +100,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Function to handle continuing a conversation
   function continueConversation(conversationId) {
-    // In a real app, this would load the conversation
     console.log(`Continuing conversation ${conversationId}`);
-    alert(`Loading conversation ${conversationId}\n(In a real app, this would open the chat interface)`);
-    
-    // You would typically:
-    // 1. Fetch the conversation history from your backend
-    // 2. Open a chat interface
-    // 3. Load the messages
+    alert(`Loading conversation ${conversationId}\n(In a real app, this would redirect to the chat interface)`);
+    // Add logic to navigate to chat section or load conversation
   }
 
   // Initialize all history sections

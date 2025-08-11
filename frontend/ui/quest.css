@@ -1,26 +1,9 @@
-/* Main Layout with Sidebar Space */
-body {
-  font-family: 'Inter', sans-serif;
-  background-color: hsl(210 25% 8%);
-  color: hsl(210 40% 98%);
-  margin: 0;
-  padding: 0;
-  display: flex;
-}
-
-/* Space reserved for sidebar (250px wide) */
-.sidebar-space {
-  width: 250px;
-  flex-shrink: 0;
-}
-
-/* Main content area */
+/* Quest Container Styles */
 .quests-main {
   flex-grow: 1;
   padding: 2rem;
 }
 
-/* Quest Container Styles */
 .quests-container {
   max-width: 800px;
   margin: 0 auto;
@@ -477,19 +460,4 @@ body {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-}
-::-webkit-scrollbar-track {
-  background: hsl(210 25% 11%);
-}
-::-webkit-scrollbar-thumb {
-  background: hsl(210 25% 16%);
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: hsl(210 25% 20%);
 }

@@ -1,7 +1,5 @@
-document.addEventListener('DOMContentLoaded', function() {
-  // Initialize Lucide icons first
-  lucide.createIcons();
-  
+// Initialize the check-in system
+function initializeCheckIn() {
   // Questions array
   const questions = [
     "How are you feeling today?",
@@ -22,6 +20,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const scoreProgressEl = document.getElementById('score-progress');
   const scoreDetailEl = document.getElementById('score-detail');
   const responsesListEl = document.getElementById('responses-list');
+  const ratingLabels = document.querySelector('.rating-labels');
 
   // State
   let currentQuestionIndex = 0;
@@ -31,46 +30,49 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Create star rating elements
   function createStars() {
-    starsContainer.innerHTML = ''; // Clear existing stars
+    starsContainer.innerHTML = '';
     
     for (let i = 1; i <= 5; i++) {
       const starButton = document.createElement('button');
       starButton.className = 'star-button';
       starButton.innerHTML = `<i class="star-icon" data-lucide="star"></i>`;
-      starButton.addEventListener('click', () => selectRating(i));
+      starButton.dataset.rating = i;
+      
+      // Highlight if this star is part of the selected rating
+      if (i <= selectedRating) {
+        starButton.querySelector('.star-icon').classList.add('filled');
+      }
       
       starsContainer.appendChild(starButton);
     }
     
-    // Refresh icons after creation
+    // Use event delegation for better performance
+    starsContainer.addEventListener('click', handleStarClick);
     lucide.createIcons();
   }
 
-  // Select rating
-  function selectRating(rating) {
+  // Handle star clicks
+  function handleStarClick(e) {
     if (hasSubmittedAll) return;
     
-    selectedRating = rating;
+    const starButton = e.target.closest('.star-button');
+    if (!starButton) return;
+    
+    selectedRating = parseInt(starButton.dataset.rating);
     submitButton.disabled = false;
     
-    // Highlight selected stars
+    // Update star visuals
     const stars = starsContainer.querySelectorAll('.star-icon');
     stars.forEach((star, index) => {
-      if (index < rating) {
-        star.classList.add('filled');
-      } else {
-        star.classList.remove('filled');
-      }
+      star.classList.toggle('filled', index < selectedRating);
     });
   }
 
-  // Reset stars
+  // Reset stars for new question
   function resetStars() {
     selectedRating = 0;
     const stars = starsContainer.querySelectorAll('.star-icon');
-    stars.forEach(star => {
-      star.classList.remove('filled');
-    });
+    stars.forEach(star => star.classList.remove('filled'));
     submitButton.disabled = true;
   }
 
@@ -79,7 +81,7 @@ document.addEventListener('DOMContentLoaded', function() {
     dailyQuestionEl.textContent = questions[currentQuestionIndex];
     progressIndicator.textContent = `Question ${currentQuestionIndex + 1} of ${questions.length}`;
     resetStars();
-    createStars(); // Recreate stars for new question
+    createStars();
   }
 
   // Handle form submission
@@ -108,7 +110,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(showResults, 1000);
   }
 
-  // Show results
+  // Show final results
   function showResults() {
     const totalScore = responses.reduce((sum, response) => sum + response.rating, 0);
     const maxScore = questions.length * 5;
@@ -118,7 +120,7 @@ document.addEventListener('DOMContentLoaded', function() {
     progressIndicator.style.display = 'none';
     dailyQuestionEl.style.display = 'none';
     starsContainer.style.display = 'none';
-    document.querySelector('.rating-labels').style.display = 'none';
+    ratingLabels.style.display = 'none';
     submitButton.style.display = 'none';
     
     // Show results
@@ -149,11 +151,20 @@ document.addEventListener('DOMContentLoaded', function() {
     completedMessage.style.display = 'flex';
     resultsContainer.style.display = 'flex';
     
-    // Refresh icons
-    lucide.createIcons();
+    // Trigger confetti for good scores
+    if (percentage >= 70) {
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+    }
   }
 
-  // Initialize
+  // Initialize the check-in
   updateQuestion();
   submitButton.addEventListener('click', handleSubmit);
-});
+}
+
+// Make function available globally
+window.initializeCheckIn = initializeCheckIn;
