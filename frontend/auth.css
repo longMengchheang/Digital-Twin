@@ -1,0 +1,63 @@
+.auth-form {
+  background: hsla(0, 0%, 0%, 0.285);
+  padding: 40px;
+  border-radius: 20px;
+  text-align: center;
+  width: 300px;
+  box-shadow: 0 2px 10px hsla(0, 0%, 0%, 0.037);
+  z-index: 1001; /* Ensure it’s above the overlay */
+}
+
+.auth-form h2 {
+  margin-bottom: 15px;
+  color: hsl(84 81% 44%);
+}
+
+.auth-form input {
+  margin: 10px 0;
+  padding: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.auth-form button {
+  padding: 8px 16px;
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  margin-top: 10px;
+  border-radius: 4px;
+}
+
+#login-form button {
+  background-color: hsl(120, 100%, 50%);
+  color: white;
+}
+
+#register-form button {
+  background-color: hsl(84 81% 44%);
+  color: white;
+}
+
+#login-form button:hover {
+  background-color: hsl(120 100% 35%);
+}
+
+#register-form button:hover {
+  background-color: hsl(120 100% 35%);;
+}
+
+#login-message, #register-message, #fallback-message {
+  margin-top: 10px;
+}
+
+.auth-form a {
+  color: hsl(210 100% 50%);
+  text-decoration: none;
+}
+
+.auth-form a:hover {
+  text-decoration: underline;
+}

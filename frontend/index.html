@@ -15,15 +15,19 @@
   <link rel="stylesheet" href="./ui/history.css">
   <link rel="stylesheet" href="./ui/profile.css">
   <link rel="stylesheet" href="./ui/insight.css">
+  <link rel="stylesheet" href="./auth.css">
 </head>
 <body>
+  <!-- Auth -->
+  <div id="auth-container" style="display: flex; justify-content: center; align-items: center; height: 100vh; width: 100%; background: hsl(210 25% 11%); position: relative; z-index: 1000;"></div>
+
   <!-- Sidebar -->
-  <div class="sidebar">
+  <div class="sidebar" id="sidebar" style="display: none;">
     <div class="logo">
       <h1>Digital Twin</h1>
     </div>
     <nav class="nav-menu">
-      <button class="nav-button active" onclick="showSection('checkin')">
+      <button class="nav-button" onclick="showSection('checkin')">
         <i class="icon" data-lucide="home" style="color: hsl(48 96% 50%);"></i>
         <span class="text">DAILY CHECK IN</span>
       </button>
@@ -51,10 +55,149 @@
   </div>
 
   <!-- Main content area -->
-  <div class="main-content" id="main-content"></div>
-  
+  <div class="main-content" id="main-content" style="display: none;"></div>
+
   <script>
-    function showSection(sectionId) {
+
+    // auth
+    function loadAuthForm() {
+      const authContainer = document.getElementById('auth-container');
+      fetch('/auth.html')
+        .then(response => {
+          if (!response.ok) throw new Error(`Failed to load auth.html: ${response.status}`);
+          return response.text();
+        })
+        .then(html => {
+          authContainer.innerHTML = html;
+          lucide.createIcons();
+          document.getElementById('login-form').style.display = 'block';
+          document.getElementById('register-form').style.display = 'none';
+          console.log('Auth form loaded successfully');
+        })
+        .catch(error => {
+          console.error('Auth load error:', error);
+          authContainer.innerHTML = `
+            <div class="auth-form">
+              <h2>Digital Twin</h2>
+              <input type="email" id="fallback-email" placeholder="Email">
+              <input type="password" id="fallback-password" placeholder="Password">
+              <button onclick="performFallbackLogin()">Login</button>
+              <button onclick="toggleFallbackForm('register')">Register</button>
+              <p id="fallback-message"></p>
+            </div>
+          `;
+        });
+    }
+
+    function toggleAuthForm(formType) {
+      const loginForm = document.getElementById('login-form');
+      const registerForm = document.getElementById('register-form');
+      if (loginForm && registerForm) {
+        loginForm.style.display = formType === 'login' ? 'block' : 'none';
+        registerForm.style.display = formType === 'register' ? 'block' : 'none';
+      }
+    }
+
+    function toggleFallbackForm(formType) {
+      const container = document.getElementById('auth-container');
+      if (formType === 'register') {
+        container.innerHTML = `
+          <div class="auth-form">
+            <h2>Register</h2>
+            <input type="email" id="fallback-email" placeholder="Email">
+            <input type="password" id="fallback-password" placeholder="Password">
+            <button onclick="performFallbackRegister()">Register</button>
+            <button onclick="toggleFallbackForm('login')">Login</button>
+            <p id="fallback-message"></p>
+          </div>
+        `;
+      } else {
+        container.innerHTML = `
+          <div class="auth-form">
+            <h2>Login</h2>
+            <input type="email" id="fallback-email" placeholder="Email">
+            <input type="password" id="fallback-password" placeholder="Password">
+            <button onclick="performFallbackLogin()">Login</button>
+            <button onclick="toggleFallbackForm('register')">Register</button>
+            <p id="fallback-message"></p>
+          </div>
+        `;
+      }
+    }
+
+    function performFallbackLogin() {
+      const email = document.getElementById('fallback-email').value;
+      const password = document.getElementById('fallback-password').value;
+      const messageEl = document.getElementById('fallback-message');
+      if (!email || !password) {
+        messageEl.textContent = 'Email and password are required';
+        messageEl.style.color = 'red';
+        return;
+      }
+      fetch('http://localhost:5000/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+          document.getElementById('auth-container').style.display = 'none';
+          document.getElementById('sidebar').style.display = 'block';
+          document.getElementById('main-content').style.display = 'block';
+          showSection('checkin');
+        } else {
+          messageEl.textContent = data.msg || 'Login failed';
+          messageEl.style.color = 'red';
+        }
+      })
+      .catch(err => {
+        console.error('Fallback login error:', err);
+        messageEl.textContent = 'Failed to connect to server';
+        messageEl.style.color = 'red';
+      });
+    }
+
+    function performFallbackRegister() {
+      const email = document.getElementById('fallback-email').value;
+      const password = document.getElementById('fallback-password').value;
+      const messageEl = document.getElementById('fallback-message');
+      if (!email || !password) {
+        messageEl.textContent = 'Email and password are required';
+        messageEl.style.color = 'red';
+        return;
+      }
+      fetch('http://localhost:5000/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+          messageEl.textContent = 'Registration successful! Logging in...';
+          messageEl.style.color = 'green';
+          setTimeout(() => {
+            document.getElementById('auth-container').style.display = 'none';
+            document.getElementById('sidebar').style.display = 'block';
+            document.getElementById('main-content').style.display = 'block';
+            showSection('checkin');
+          }, 1000);
+        } else {
+          messageEl.textContent = data.msg || 'Registration failed';
+          messageEl.style.color = 'red';
+        }
+      })
+      .catch(err => {
+        console.error('Fallback register error:', err);
+        messageEl.textContent = 'Failed to connect to server';
+        messageEl.style.color = 'red';
+      });
+    }
+
+function showSection(sectionId) {
       const mainContent = document.getElementById('main-content');
       if (!mainContent) {
         console.error('Main content element not found');
@@ -132,18 +275,20 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      console.log('DOM content loaded, initializing default section: checkin');
+      console.log('DOM loaded - loading auth form, initializing default section: checkin');
+      loadAuthForm();
       lucide.createIcons();
       showSection('checkin');
-    });
+    });    
+
   </script>
-  
-  <!-- Load all logic files -->
-  <script src="./logic/checkin.js"></script>
+  <script src="./public/auth.js"></script>
+  <script src="./logic/checkin.js"></script> 
   <script src="./logic/quest.js"></script>
   <script src="./logic/chat.js"></script>
   <script src="./logic/history.js"></script>
   <script src="./logic/profile.js"></script>
   <script src="./logic/insight.js"></script>
+
 </body>
 </html>
