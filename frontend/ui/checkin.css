@@ -234,6 +234,7 @@ body {
   text-align: right;
 }
 
+
 @keyframes scaleIn {
   from {
     transform: scale(0);
