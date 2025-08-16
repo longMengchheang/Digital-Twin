@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark" style="color-scheme: dark;">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,50 +15,76 @@
   <link rel="stylesheet" href="./ui/history.css">
   <link rel="stylesheet" href="./ui/profile.css">
   <link rel="stylesheet" href="./ui/insight.css">
+  <link rel="stylesheet" href="./ui/settings.css">
   <link rel="stylesheet" href="./auth.css">
 </head>
 <body>
   <!-- Auth -->
-  <div id="auth-container" style="display: flex; justify-content: center; align-items: center; height: 100vh; width: 100%; background: hsl(210 25% 11%); position: relative; z-index: 1000;"></div>
+  <div id="auth-container" style="display: flex; justify-content: center; align-items: center; height: 100vh; width: 100%; background: hsl(210 25% 11%); position: fixed; top: 0; left: 0; z-index: 2000;"></div>
 
   <!-- Sidebar -->
-  <div class="sidebar" id="sidebar" style="display: none;">
-    <div class="logo">
-      <h1>Digital Twin</h1>
+  <div class="sidebar-wrapper" id="sidebar" style="display: none;">
+    <!-- Header -->
+    <div class="sidebar-header">
+      <p>Digital Twin</p>
     </div>
-    <nav class="nav-menu">
-      <button class="nav-button" onclick="showSection('checkin')">
-        <i class="icon" data-lucide="home" style="color: hsl(48 96% 50%);"></i>
-        <span class="text">DAILY CHECK IN</span>
+
+    <!-- Main Chat Items (non-scrollable) -->
+    <div class="main-chat-items">
+      <div class="chat-item active" onclick="showSection('checkin')">
+        <i data-lucide="home" class="chat-item-icon" style="color: hsl(48 96% 50%);"></i>
+        <span>Daily Check In</span>
+      </div>
+      <div class="chat-item" onclick="showSection('quest')">
+        <i data-lucide="target" class="chat-item-icon" style="color: hsl(350, 100%, 70%);"></i>
+        <span>Quest</span>
+      </div>
+      <div class="chat-item" onclick="showSection('insight')">
+        <i data-lucide="bar-chart-2" class="chat-item-icon" style="color: hsl(262 83% 58%);"></i>
+        <span>Insight</span>
+      </div>
+      <div class="chat-item" onclick="showSection('chat')">
+        <i data-lucide="message-circle" class="chat-item-icon" style="color: hsl(84 81% 44%);"></i>
+        <span>Chat</span>
+      </div>
+    </div>
+
+    <!-- Scrollable Content - for chat history -->
+    <div class="scrollable-content">
+      <div class="history-title">Recent Chats</div>
+      <!-- Chat History -->
+      <div class="chat-history">
+        <div class="chat-item" onclick="showSection('history', 'Yesterday\'s Check In')">
+          <i data-lucide="history" class="chat-item-icon"></i>
+          <span>History Example</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="sidebar-footer">
+      <div class="user-profile" onclick="showSection('profile')">
+        <i data-lucide="user" class="chat-item-icon" style="color: hsl(218 91% 60%);"></i>
+        <div class="user-name">Profile</div>
+      </div>
+      <button class="collapse-button" id="collapseButton">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6 17L12 12L6 7" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
       </button>
-      <button class="nav-button" onclick="showSection('quest')">
-        <i class="icon" data-lucide="target" style="color: hsl(350, 100%, 70%);"></i>
-        <span class="text">QUESTS</span>
-      </button>
-      <button class="nav-button" onclick="showSection('chat')">
-        <i class="icon" data-lucide="message-circle" style="color: hsl(84 81% 44%);"></i>
-        <span class="text">CHAT</span>
-      </button>
-      <button class="nav-button" onclick="showSection('history')">
-        <i class="icon" data-lucide="history" style="color: hsl(210 40% 98%);"></i>
-        <span class="text">HISTORY</span>
-      </button>
-      <button class="nav-button" onclick="showSection('insights')">
-        <i class="icon" data-lucide="bar-chart-2" style="color: hsl(262 83% 58%);"></i>
-        <span class="text">INSIGHTS</span>
-      </button>
-      <button class="nav-button" onclick="showSection('profile')">
-        <i class="icon" data-lucide="user" style="color: hsl(218 91% 60%);"></i>
-        <span class="text">PROFILE</span>
-      </button>
-    </nav>
+    </div>
   </div>
 
-  <!-- Main content area -->
-  <div class="main-content" id="main-content" style="display: none;"></div>
+  <!-- Main Content Area -->
+  <div class="main-content" id="main-content" style="display: none; display: flex; justify-content: center; align-items: center; text-align: center; width: calc(100% - var(--sidebar-width)); margin-left: var(--sidebar-width); z-index: 1000;">
+    <div class="content-wrapper" style="max-width: 80%; text-align: center;">
+      <div class="settings-button" onclick="showSection('settings')">
+        <i data-lucide="settings" style="color: hsl(84 81% 44%); font-size: 24px;"></i>
+      </div>
+    </div>
+  </div>
 
   <script>
-
     // auth
     function loadAuthForm() {
       const authContainer = document.getElementById('auth-container');
@@ -77,13 +103,13 @@
         .catch(error => {
           console.error('Auth load error:', error);
           authContainer.innerHTML = `
-            <div class="auth-form">
+            <div class="auth-form" style="text-align: center; width: 100%; max-width: 400px;">
               <h2>Digital Twin</h2>
-              <input type="email" id="fallback-email" placeholder="Email">
-              <input type="password" id="fallback-password" placeholder="Password">
-              <button onclick="performFallbackLogin()">Login</button>
-              <button onclick="toggleFallbackForm('register')">Register</button>
-              <p id="fallback-message"></p>
+              <input type="email" id="fallback-email" placeholder="Email" style="width: 80%; margin: 0.5rem auto;">
+              <input type="password" id="fallback-password" placeholder="Password" style="width: 80%; margin: 0.5rem auto;">
+              <button onclick="performFallbackLogin()" style="width: 80%; margin: 0.5rem auto;">Login</button>
+              <button onclick="toggleFallbackForm('register')" style="width: 80%; margin: 0.5rem auto;">Register</button>
+              <p id="fallback-message" style="color: red;"></p>
             </div>
           `;
         });
@@ -102,24 +128,24 @@
       const container = document.getElementById('auth-container');
       if (formType === 'register') {
         container.innerHTML = `
-          <div class="auth-form">
+          <div class="auth-form" style="text-align: center; width: 100%; max-width: 400px;">
             <h2>Register</h2>
-            <input type="email" id="fallback-email" placeholder="Email">
-            <input type="password" id="fallback-password" placeholder="Password">
-            <button onclick="performFallbackRegister()">Register</button>
-            <button onclick="toggleFallbackForm('login')">Login</button>
-            <p id="fallback-message"></p>
+            <input type="email" id="fallback-email" placeholder="Email" style="width: 80%; margin: 0.5rem auto;">
+            <input type="password" id="fallback-password" placeholder="Password" style="width: 80%; margin: 0.5rem auto;">
+            <button onclick="performFallbackRegister()" style="width: 80%; margin: 0.5rem auto;">Register</button>
+            <button onclick="toggleFallbackForm('login')" style="width: 80%; margin: 0.5rem auto;">Login</button>
+            <p id="fallback-message" style="color: red;"></p>
           </div>
         `;
       } else {
         container.innerHTML = `
-          <div class="auth-form">
+          <div class="auth-form" style="text-align: center; width: 100%; max-width: 400px;">
             <h2>Login</h2>
-            <input type="email" id="fallback-email" placeholder="Email">
-            <input type="password" id="fallback-password" placeholder="Password">
-            <button onclick="performFallbackLogin()">Login</button>
-            <button onclick="toggleFallbackForm('register')">Register</button>
-            <p id="fallback-message"></p>
+            <input type="email" id="fallback-email" placeholder="Email" style="width: 80%; margin: 0.5rem auto;">
+            <input type="password" id="fallback-password" placeholder="Password" style="width: 80%; margin: 0.5rem auto;">
+            <button onclick="performFallbackLogin()" style="width: 80%; margin: 0.5rem auto;">Login</button>
+            <button onclick="toggleFallbackForm('register')" style="width: 80%; margin: 0.5rem auto;">Register</button>
+            <p id="fallback-message" style="color: red;"></p>
           </div>
         `;
       }
@@ -143,10 +169,14 @@
       .then(data => {
         if (data.token) {
           localStorage.setItem('token', data.token);
-          document.getElementById('auth-container').style.display = 'none';
-          document.getElementById('sidebar').style.display = 'block';
-          document.getElementById('main-content').style.display = 'block';
-          showSection('checkin');
+          const authContainer = document.getElementById('auth-container');
+          authContainer.style.opacity = '0';
+          setTimeout(() => {
+            authContainer.style.display = 'none';
+            document.getElementById('sidebar').style.display = 'block';
+            document.getElementById('main-content').style.display = 'block';
+            showSection('checkin');
+          }, 300); // Match this with the CSS transition if added
         } else {
           messageEl.textContent = data.msg || 'Login failed';
           messageEl.style.color = 'red';
@@ -177,13 +207,18 @@
       .then(data => {
         if (data.token) {
           localStorage.setItem('token', data.token);
+          const messageEl = document.getElementById('fallback-message');
           messageEl.textContent = 'Registration successful! Logging in...';
           messageEl.style.color = 'green';
           setTimeout(() => {
-            document.getElementById('auth-container').style.display = 'none';
-            document.getElementById('sidebar').style.display = 'block';
-            document.getElementById('main-content').style.display = 'block';
-            showSection('checkin');
+            const authContainer = document.getElementById('auth-container');
+            authContainer.style.opacity = '0';
+            setTimeout(() => {
+              authContainer.style.display = 'none';
+              document.getElementById('sidebar').style.display = 'block';
+              document.getElementById('main-content').style.display = 'block';
+              showSection('checkin');
+            }, 300); // Match this with the CSS transition if added
           }, 1000);
         } else {
           messageEl.textContent = data.msg || 'Registration failed';
@@ -197,7 +232,7 @@
       });
     }
 
-function showSection(sectionId) {
+    function showSection(sectionId, chatTitle) {
       const mainContent = document.getElementById('main-content');
       if (!mainContent) {
         console.error('Main content element not found');
@@ -215,7 +250,25 @@ function showSection(sectionId) {
         })
         .then(html => {
           console.log(`Successfully loaded ${sectionId}`);
-          mainContent.innerHTML = html;
+          mainContent.innerHTML = '';
+          const contentWrapper = document.createElement('div');
+          contentWrapper.className = 'content-wrapper';
+          contentWrapper.style.maxWidth = '80%';
+          contentWrapper.style.textAlign = 'center';
+          if (chatTitle) {
+            contentWrapper.innerHTML = `
+              <h1>${chatTitle}</h1>
+              <p>Details for ${chatTitle} would appear here...</p>
+            `;
+          } else {
+            contentWrapper.innerHTML = html;
+          }
+          mainContent.appendChild(contentWrapper);
+          mainContent.innerHTML += `
+            <div class="settings-button" onclick="showSection('settings')">
+              <i data-lucide="settings" style="color: hsl(84 81% 44%); font-size: 24px;"></i>
+            </div>
+          `;
           lucide.createIcons();
           
           // Initialize section-specific logic after a small delay
@@ -235,6 +288,9 @@ function showSection(sectionId) {
             } else if (sectionId === 'profile' && typeof initializeProfile === 'function') {
               console.log('Initializing profile...');
               initializeProfile();
+            } else if (sectionId === 'settings' && typeof initializeSettings === 'function') {
+              console.log('Initializing settings...');
+              initializeSettings();
             } else {
               console.warn(`No initialization function found for ${sectionId}`);
             }
@@ -246,39 +302,61 @@ function showSection(sectionId) {
         .catch(error => {
           console.error('Error loading section:', error);
           mainContent.innerHTML = `
-            <p>Error loading section: ${error.message}. Please check if ./sections/${sectionId}.html exists and try again.</p>
+            <div class="content-wrapper" style="max-width: 80%; text-align: center;">
+              <p>Error loading section: ${error.message}. Please check if ./sections/${sectionId}.html exists and try again.</p>
+            </div>
+            <div class="settings-button" onclick="showSection('settings')">
+              <i data-lucide="settings" style="color: hsl(84 81% 44%); font-size: 24px;"></i>
+            </div>
           `;
         });
 
       // Update active button styling
-      document.querySelectorAll('.nav-button').forEach(button => {
+      document.querySelectorAll('.chat-item').forEach(button => {
         button.classList.remove('active');
-        const icon = button.querySelector('.icon');
+        const icon = button.querySelector('.chat-item-icon');
         const btnSection = button.getAttribute('onclick').match(/'([^']+)'/)[1];
         const iconColors = {
           'checkin': 'hsl(48 96% 50%)',
           'quest': 'hsl(350, 100%, 70%)',
+          'insight': 'hsl(262 83% 58%)',
           'chat': 'hsl(84 81% 44%)',
           'history': 'hsl(210 40% 98%)',
-          'profile': 'hsl(218 91% 60%)'
+          'profile': 'hsl(218 91% 60%)',
+          'settings': 'hsl(84 81% 44%)'
         };
         icon.style.color = iconColors[btnSection] || 'hsl(210 40% 98%)';
       });
       
-      const activeButton = document.querySelector(`.nav-button[onclick="showSection('${sectionId}')"]`);
+      const activeButton = document.querySelector(`.chat-item[onclick="showSection('${sectionId}'")`);
       if (activeButton) {
         activeButton.classList.add('active');
-        activeButton.querySelector('.icon').style.color = 'hsl(84 81% 44%)';
+        activeButton.querySelector('.chat-item-icon').style.color = 'hsl(84 81% 44%)';
       } else {
         console.warn(`No button found for section: ${sectionId}`);
       }
     }
 
+    // Toggle sidebar collapse
+    document.getElementById('collapseButton').addEventListener('click', function() {
+      const sidebar = document.getElementById('sidebar');
+      const mainContent = document.getElementById('main-content');
+      sidebar.classList.toggle('collapsed');
+      this.querySelector('svg').style.transform = sidebar.classList.contains('collapsed') 
+        ? 'rotate(180deg)' 
+        : 'rotate(0deg)';
+      mainContent.style.width = sidebar.classList.contains('collapsed') 
+        ? 'calc(100% - var(--sidebar-width-icon))' 
+        : 'calc(100% - var(--sidebar-width))';
+      mainContent.style.marginLeft = sidebar.classList.contains('collapsed') 
+        ? 'var(--sidebar-width-icon)' 
+        : 'var(--sidebar-width)';
+    });
+
     document.addEventListener('DOMContentLoaded', () => {
       console.log('DOM loaded - loading auth form, initializing default section: checkin');
       loadAuthForm();
       lucide.createIcons();
-      showSection('checkin');
     });    
 
   </script>
@@ -289,6 +367,6 @@ function showSection(sectionId) {
   <script src="./logic/history.js"></script>
   <script src="./logic/profile.js"></script>
   <script src="./logic/insight.js"></script>
-
+  <script src="./logic/settings.js"></script>
 </body>
 </html>

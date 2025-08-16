@@ -1,13 +1,14 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-const checkInRoutes = require('./routes/checkInRoutes');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('./models/User');
 const cors = require('cors');
 const path = require('path');
-const auth = require('./middleware/auth'); // Assuming this is the path to your auth middleware
+const auth = require('./middleware/auth'); 
+const checkInRoutes = require('./routes/checkInRoutes');
+const questRoutes = require('./routes/questRoutes');
 
 dotenv.config();
 
@@ -60,6 +61,10 @@ app.post('/api/login', async (req, res) => {
 
 app.use('/api/checkin', auth, checkInRoutes); // Apply auth middleware to protected routes
 
+
+app.use('/api/quest', require('./routes/questRoutes'));
+
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
@@ -76,3 +81,6 @@ mongoose.connect(process.env.MONGODB_URI)
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   })
   .catch(err => console.error('MongoDB connection error:', err));
+
+
+
