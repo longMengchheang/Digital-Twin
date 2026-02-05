@@ -85,6 +85,8 @@
   </div>
 
   <script>
+    const templateCache = {};
+
     // auth
     function loadAuthForm() {
       const authContainer = document.getElementById('auth-container');
@@ -238,78 +240,90 @@
         console.error('Main content element not found');
         return;
       }
-      
-      console.log(`Attempting to load section: ./sections/${sectionId}.html`);
-      fetch(`./sections/${sectionId}.html`)
-        .then(response => {
-          console.log(`Fetch response for ${sectionId}: ${response.status} ${response.statusText}`);
-          if (!response.ok) {
-            throw new Error(`Failed to load ${sectionId}.html: ${response.status} ${response.statusText}`);
-          }
-          return response.text();
-        })
-        .then(html => {
-          console.log(`Successfully loaded ${sectionId}`);
-          mainContent.innerHTML = '';
-          const contentWrapper = document.createElement('div');
-          contentWrapper.className = 'content-wrapper';
-          contentWrapper.style.maxWidth = '80%';
-          contentWrapper.style.textAlign = 'center';
-          if (chatTitle) {
-            contentWrapper.innerHTML = `
-              <h1>${chatTitle}</h1>
-              <p>Details for ${chatTitle} would appear here...</p>
-            `;
+
+      // Helper to render content
+      const renderContent = (html) => {
+        console.log(`Rendering ${sectionId}`);
+        mainContent.innerHTML = '';
+        const contentWrapper = document.createElement('div');
+        contentWrapper.className = 'content-wrapper';
+        contentWrapper.style.maxWidth = '80%';
+        contentWrapper.style.textAlign = 'center';
+        if (chatTitle) {
+          contentWrapper.innerHTML = `
+            <h1>${chatTitle}</h1>
+            <p>Details for ${chatTitle} would appear here...</p>
+          `;
+        } else {
+          contentWrapper.innerHTML = html;
+        }
+        mainContent.appendChild(contentWrapper);
+        mainContent.innerHTML += `
+          <div class="settings-button" onclick="showSection('settings')">
+            <i data-lucide="settings" style="color: hsl(84 81% 44%); font-size: 24px;"></i>
+          </div>
+        `;
+        lucide.createIcons();
+
+        // Initialize section-specific logic after a small delay
+        setTimeout(() => {
+          if (sectionId === 'checkin' && typeof initializeCheckIn === 'function') {
+            console.log('Initializing checkin...');
+            initializeCheckIn();
+          } else if (sectionId === 'quest' && typeof initializeQuests === 'function') {
+            console.log('Initializing quest...');
+            initializeQuests();
+          } else if (sectionId === 'chat' && typeof initializeChat === 'function') {
+            console.log('Initializing chat...');
+            initializeChat();
+          } else if (sectionId === 'history' && typeof initializeHistory === 'function') {
+            console.log('Initializing history...');
+            initializeHistory();
+          } else if (sectionId === 'profile' && typeof initializeProfile === 'function') {
+            console.log('Initializing profile...');
+            initializeProfile();
+          } else if (sectionId === 'settings' && typeof initializeSettings === 'function') {
+            console.log('Initializing settings...');
+            initializeSettings();
           } else {
-            contentWrapper.innerHTML = html;
+            console.warn(`No initialization function found for ${sectionId}`);
           }
-          mainContent.appendChild(contentWrapper);
-          mainContent.innerHTML += `
-            <div class="settings-button" onclick="showSection('settings')">
-              <i data-lucide="settings" style="color: hsl(84 81% 44%); font-size: 24px;"></i>
-            </div>
-          `;
-          lucide.createIcons();
           
-          // Initialize section-specific logic after a small delay
-          setTimeout(() => {
-            if (sectionId === 'checkin' && typeof initializeCheckIn === 'function') {
-              console.log('Initializing checkin...');
-              initializeCheckIn();
-            } else if (sectionId === 'quest' && typeof initializeQuests === 'function') {
-              console.log('Initializing quest...');
-              initializeQuests();
-            } else if (sectionId === 'chat' && typeof initializeChat === 'function') {
-              console.log('Initializing chat...');
-              initializeChat();
-            } else if (sectionId === 'history' && typeof initializeHistory === 'function') {
-              console.log('Initializing history...');
-              initializeHistory();
-            } else if (sectionId === 'profile' && typeof initializeProfile === 'function') {
-              console.log('Initializing profile...');
-              initializeProfile();
-            } else if (sectionId === 'settings' && typeof initializeSettings === 'function') {
-              console.log('Initializing settings...');
-              initializeSettings();
-            } else {
-              console.warn(`No initialization function found for ${sectionId}`);
+          // Refresh icons after initialization
+          lucide.createIcons();
+        }, 50);
+      };
+
+      if (templateCache[sectionId]) {
+        console.log(`Serving ${sectionId} from cache`);
+        renderContent(templateCache[sectionId]);
+      } else {
+        console.log(`Attempting to load section: ./sections/${sectionId}.html`);
+        fetch(`./sections/${sectionId}.html`)
+          .then(response => {
+            console.log(`Fetch response for ${sectionId}: ${response.status} ${response.statusText}`);
+            if (!response.ok) {
+              throw new Error(`Failed to load ${sectionId}.html: ${response.status} ${response.statusText}`);
             }
-            
-            // Refresh icons after initialization
-            lucide.createIcons();
-          }, 50);
-        })
-        .catch(error => {
-          console.error('Error loading section:', error);
-          mainContent.innerHTML = `
-            <div class="content-wrapper" style="max-width: 80%; text-align: center;">
-              <p>Error loading section: ${error.message}. Please check if ./sections/${sectionId}.html exists and try again.</p>
-            </div>
-            <div class="settings-button" onclick="showSection('settings')">
-              <i data-lucide="settings" style="color: hsl(84 81% 44%); font-size: 24px;"></i>
-            </div>
-          `;
-        });
+            return response.text();
+          })
+          .then(html => {
+            console.log(`Successfully loaded ${sectionId}`);
+            templateCache[sectionId] = html; // Cache it
+            renderContent(html);
+          })
+          .catch(error => {
+            console.error('Error loading section:', error);
+            mainContent.innerHTML = `
+              <div class="content-wrapper" style="max-width: 80%; text-align: center;">
+                <p>Error loading section: ${error.message}. Please check if ./sections/${sectionId}.html exists and try again.</p>
+              </div>
+              <div class="settings-button" onclick="showSection('settings')">
+                <i data-lucide="settings" style="color: hsl(84 81% 44%); font-size: 24px;"></i>
+              </div>
+            `;
+          });
+      }
 
       // Update active button styling
       document.querySelectorAll('.chat-item').forEach(button => {
@@ -328,7 +342,7 @@
         icon.style.color = iconColors[btnSection] || 'hsl(210 40% 98%)';
       });
       
-      const activeButton = document.querySelector(`.chat-item[onclick="showSection('${sectionId}'")`);
+      const activeButton = document.querySelector(`.chat-item[onclick="showSection('${sectionId}')"]`);
       if (activeButton) {
         activeButton.classList.add('active');
         activeButton.querySelector('.chat-item-icon').style.color = 'hsl(84 81% 44%)';
