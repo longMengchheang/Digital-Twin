@@ -19,7 +19,7 @@ const usedJWT_SECRET = process.env.JWT_SECRET || forcedJWT_SECRET;
 
 app.use(express.json());
 app.use(cors({
-  origin: '*', // Allow all origins for testing; adjust in production
+  origin: process.env.ALLOWED_ORIGIN || '*', // Use env var for production, allow all for testing
   credentials: true
 }));
 
