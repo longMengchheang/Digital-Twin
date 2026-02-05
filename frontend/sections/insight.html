@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insights Web</title>
+    <link rel="stylesheet" href="../ui/insights.css">
+    <style>
+        /* Add some additional spacing styles */
+        .main-content {
+            padding: 3rem 2rem; /* Increased top/bottom padding */
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .section-header {
+            margin-bottom: 2.5rem;
+            padding: 1.5rem 0; /* Added padding to header */
+        }
+        .card {
+            margin-bottom: 2rem;
+        }
+        .card-content {
+            padding: 1.5rem;
+        }
+        .graph-container {
+            padding: 1rem;
+        }
+        /* Stacked layout for recommendations and mood */
+        .recommendations-section {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        /* List item spacing */
+        .list-disc {
+            padding-left: 1.25rem;
+        }
+        .list-disc li {
+            margin-bottom: 1rem;
+        }
+        /* Activity item spacing */
+        .activity-item {
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid hsl(210 25% 16%);
+        }
+        .activity-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="section-header">
+            <h1 class="section-title">Your Insights Dashboard</h1>
+            <p class="section-description">
+                Connected insights from your check-ins, quests, and chats to suggest next steps and estimate your current mood.
+            </p>
+        </div>
+        
+        <!-- Network Graph Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Connection Web</h3>
+                <p class="card-description">
+                    Visual representation of how your activities and moods are connected
+                </p>
+            </div>
+            <div class="card-content">
+                <div class="graph-container">
+                    <svg viewBox="0 0 440 440" class="graph-svg" role="img" aria-label="Connection graph of suggestions and mood">
+                        <!-- Links -->
+                        <line x1="220" y1="220" x2="220" y2="80" stroke="hsl(84 81% 44%)" stroke-opacity="0.5" stroke-width="2" />
+                        <line x1="220" y1="220" x2="353.5" y2="150.5" stroke="hsl(84 81% 44%)" stroke-opacity="0.5" stroke-width="2" />
+                        <line x1="220" y1="220" x2="353.5" y2="289.5" stroke="hsl(84 81% 44%)" stroke-opacity="0.5" stroke-width="2" />
+                        <line x1="220" y1="220" x2="220" y2="360" stroke="hsl(84 81% 44%)" stroke-opacity="0.5" stroke-width="2" />
+                        <line x1="220" y1="220" x2="86.5" y2="289.5" stroke="hsl(84 81% 44%)" stroke-opacity="0.5" stroke-width="2" />
+
+                        <!-- Center node -->
+                        <circle cx="220" cy="220" r="36" fill="hsl(84 81% 44% / 0.15)" stroke="hsl(84 81% 44%)" />
+                        <text x="220" y="220" text-anchor="middle" dominant-baseline="middle" fill="hsl(210 40% 98%)" font-size="14">
+                            You
+                        </text>
+
+                        <!-- Outer nodes -->
+                        <g>
+                            <circle cx="220" cy="80" r="28" fill="hsl(210 25% 16%)" />
+                            <text x="220" y="80" text-anchor="middle" dominant-baseline="middle" fill="hsl(210 40% 98%)" font-size="10">
+                                Quest: 7-Day Mindfulness Challenge
+                            </text>
+                        </g>
+                        <g>
+                            <circle cx="353.5" cy="150.5" r="28" fill="hsl(210 25% 16%)" />
+                            <text x="353.5" y="150.5" text-anchor="middle" dominant-baseline="middle" fill="hsl(210 40% 98%)" font-size="10">
+                                Habit: 10-minute daily breathing
+                            </text>
+                        </g>
+                        <g>
+                            <circle cx="353.5" cy="289.5" r="28" fill="hsl(210 25% 16%)" />
+                            <text x="353.5" y="289.5" text-anchor="middle" dominant-baseline="middle" fill="hsl(210 40% 98%)" font-size="10">
+                                Tip: Schedule a daily 5-minute reflection after breakfast
+                            </text>
+                        </g>
+                        <g>
+                            <circle cx="220" cy="360" r="28" fill="hsl(210 25% 16%)" />
+                            <text x="220" y="360" text-anchor="middle" dominant-baseline="middle" fill="hsl(210 40% 98%)" font-size="10">
+                                Topic: Stress management
+                            </text>
+                        </g>
+                        <g>
+                            <circle cx="86.5" cy="289.5" r="28" fill="hsl(210 25% 16%)" />
+                            <text x="86.5" y="289.5" text-anchor="middle" dominant-baseline="middle" fill="hsl(210 40% 98%)" font-size="10">
+                                Feeling: Negative
+                            </text>
+                        </g>
+                    </svg>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Stacked Recommendations and Mood Section -->
+        <div class="recommendations-section">
+            <!-- Recommendations Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Recommended Next Steps</h3>
+                    <p class="card-description">
+                        Actions tailored based on your recent activity
+                    </p>
+                </div>
+                <div class="card-content">
+                    <ul class="list-disc">
+                        <li>Start: <span class="text-accent">7-Day Mindfulness Challenge</span></li>
+                        <li>Build habit: <span class="text-accent">10-minute daily breathing</span></li>
+                        <li>Quick tip: <span class="text-accent">Schedule a daily 5-minute reflection after breakfast</span></li>
+                    </ul>
+                    <p class="mt-4 text-sm text-muted">
+                        Focus area: <span class="text-accent">Stress management</span>
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Mood Snapshot Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Mood Snapshot</h3>
+                    <p class="card-description">
+                        Your current emotional state based on recent interactions
+                    </p>
+                </div>
+                <div class="card-content">
+                    <div class="space-y-2">
+                        <p class="font-semibold">
+                            Likely feeling: <span class="text-accent">Negative</span>
+                        </p>
+                        <p class="text-sm text-muted">
+                            Based on 3 recent messages with negative sentiment
+                        </p>
+                        <div class="text-xs text-muted">
+                            Last updated: Just now
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Activity Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Recent Activity</h3>
+                <p class="card-description">
+                    Your interactions from the past week
+                </p>
+            </div>
+            <div class="card-content">
+                <div class="space-y-2">
+                    <div class="activity-item">
+                        <p class="font-semibold">Today</p>
+                        <p class="text-sm text-muted">Completed breathing exercise (8 minutes)</p>
+                    </div>
+                    <div class="activity-item">
+                        <p class="font-semibold">Yesterday</p>
+                        <p class="text-sm text-muted">Started conversation about work stress</p>
+                    </div>
+                    <div class="activity-item">
+                        <p class="font-semibold">2 days ago</p>
+                        <p class="text-sm text-muted">Skipped daily check-in</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Progress Trends Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Progress Trends</h3>
+                <p class="card-description">
+                    Your improvement over the last 30 days
+                </p>
+            </div>
+            <div class="card-content">
+                <div class="graph-container">
+                    <svg viewBox="0 0 440 200" class="graph-svg" role="img" aria-label="Progress trend graph">
+                        <!-- Simple line graph placeholder -->
+                        <polyline points="20,180 60,120 100,160 140,100 180,140 220,80 260,120 300,60 340,100 380,40 420,80"
+                                 fill="none" stroke="hsl(84 81% 44%)" stroke-width="2" />
+                        <text x="20" y="20" fill="hsl(210 40% 98%)" font-size="12">Mood improvement trend</text>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="../logic/insights.js"></script>
+</body>
+</html>
