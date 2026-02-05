@@ -363,7 +363,7 @@ function renderQuests() {
 
   const activeQuests = quests.filter(quest => !quest.completed);
 
-  console.log('Rendering quests:', activeQuests);
+  // console.log('Rendering quests:', activeQuests);
   activeQuestsCount.textContent = `${activeQuests.length} Active`;
 
   if (activeQuests.length === 0) {
@@ -375,12 +375,121 @@ function renderQuests() {
     return;
   }
 
-  activeQuestsList.innerHTML = activeQuests.map(quest => {
+  // Clear empty state if present
+  if (activeQuestsList.querySelector('.empty-state')) {
+      activeQuestsList.innerHTML = '';
+  }
+
+  const existingElements = new Map();
+  Array.from(activeQuestsList.children).forEach(child => {
+      if (child.dataset.questId) {
+          existingElements.set(child.dataset.questId, child);
+      }
+  });
+
+  let hasNewElements = false;
+
+  activeQuests.forEach((quest, index) => {
+    let questEl = existingElements.get(quest.id);
     const durationDetails = getDurationDetails(quest.duration);
     const formattedDate = formatDate(quest.createdAt);
+    const isCompleted = quest.completed;
 
-    return `
-      <div class="quest-item ${quest.completed ? 'completed' : ''}">
+    if (questEl) {
+        // Update existing element
+        if (questEl.classList.contains('completed') !== isCompleted) {
+            questEl.classList.toggle('completed', isCompleted);
+        }
+
+        let goalEl = questEl.children[1];
+        if (!goalEl || !goalEl.classList.contains('quest-goal')) {
+             goalEl = questEl.querySelector('.quest-goal');
+        }
+        if (goalEl) {
+             if (goalEl.textContent.trim() !== quest.goal) goalEl.textContent = quest.goal;
+             goalEl.classList.toggle('completed', isCompleted);
+        }
+
+        // Optimized access for progress info: children[2] -> children[0] -> children[1]
+        let progressContainer = questEl.children[2];
+        let progressInfo = null;
+        let progressFill = null;
+
+        if (progressContainer && progressContainer.classList.contains('progress-container')) {
+             const infoDiv = progressContainer.children[0];
+             if (infoDiv) progressInfo = infoDiv.children[1];
+
+             const barDiv = progressContainer.children[1];
+             if (barDiv) progressFill = barDiv.children[0];
+        } else {
+             // Fallback
+             progressInfo = questEl.querySelector('.progress-info span:last-child');
+             progressFill = questEl.querySelector('.progress-fill');
+        }
+
+        if (progressInfo && progressInfo.textContent !== `${quest.progress}%`) {
+            progressInfo.textContent = `${quest.progress}%`;
+        }
+
+        if (progressFill) {
+            if (progressFill.style.width !== `${quest.progress}%`) {
+                progressFill.style.width = `${quest.progress}%`;
+            }
+            const newClass = `progress-fill ${durationDetails.colorClass}`;
+            if (progressFill.className !== newClass) {
+                 progressFill.className = newClass;
+            }
+        }
+
+        // Update actions (attributes)
+        let actionsContainer = questEl.children[3];
+        let actionBtns = [];
+        let completeBtn = null;
+
+        if (actionsContainer && actionsContainer.classList.contains('quest-actions')) {
+             const btnsDiv = actionsContainer.children[0];
+             if (btnsDiv) actionBtns = btnsDiv.children;
+             completeBtn = actionsContainer.children[1];
+        } else {
+             actionBtns = questEl.querySelectorAll('.action-btn');
+             completeBtn = questEl.querySelector('.complete-btn');
+        }
+
+        if (actionBtns.length >= 2) {
+             const onclick1 = `window.updateQuestProgress('${quest.id}', ${quest.progress + 25})`;
+             if (actionBtns[0].getAttribute('onclick') !== onclick1) {
+                 actionBtns[0].setAttribute('onclick', onclick1);
+             }
+             const onclick2 = `window.updateQuestProgress('${quest.id}', ${quest.progress + 50})`;
+             if (actionBtns[1].getAttribute('onclick') !== onclick2) {
+                 actionBtns[1].setAttribute('onclick', onclick2);
+             }
+        }
+
+        if (completeBtn) {
+            if (completeBtn.classList.contains('completed') !== isCompleted) {
+                completeBtn.classList.toggle('completed', isCompleted);
+            }
+            const onclickComplete = `window.toggleQuestCompletion('${quest.id}')`;
+            if (completeBtn.getAttribute('onclick') !== onclickComplete) {
+                completeBtn.setAttribute('onclick', onclickComplete);
+            }
+            const btnText = isCompleted ? 'Undo' : 'Complete';
+            if (completeBtn.lastChild && completeBtn.lastChild.nodeType === Node.TEXT_NODE) {
+                if (completeBtn.lastChild.textContent.trim() !== btnText) {
+                    completeBtn.lastChild.textContent = ` ${btnText}`;
+                }
+            } else {
+                 completeBtn.innerHTML = `<i data-lucide="check"></i> ${btnText}`;
+            }
+        }
+    } else {
+        // Create new element
+        hasNewElements = true;
+        questEl = document.createElement('div');
+        questEl.className = `quest-item ${isCompleted ? 'completed' : ''}`;
+        questEl.dataset.questId = quest.id;
+        questEl.innerHTML = `
         <div class="quest-header">
           <div class="quest-type">
             <div class="icon-container ${durationDetails.colorClass}">
@@ -393,7 +502,7 @@ function renderQuests() {
           <div class="quest-date">${formattedDate}</div>
         </div>
 
-        <div class="quest-goal ${quest.completed ? 'completed' : ''}">
+        <div class="quest-goal ${isCompleted ? 'completed' : ''}">
           ${quest.goal}
         </div>
 
@@ -420,18 +529,35 @@ function renderQuests() {
             </button>
           </div>
 
-          <button class="complete-btn ${quest.completed ? 'completed' : ''}"
+          <button class="complete-btn ${isCompleted ? 'completed' : ''}"
                   onclick="window.toggleQuestCompletion('${quest.id}')">
             <i data-lucide="check"></i>
-            ${quest.completed ? 'Undo' : 'Complete'}
+            ${isCompleted ? 'Undo' : 'Complete'}
           </button>
         </div>
-      </div>
-    `;
-  }).join('');
+        `;
+    }
 
-  lucide.createIcons();
-  setTimeout(() => lucide.createIcons(), 50);
+    // Place element in correct position
+    const currentChild = activeQuestsList.children[index];
+    if (currentChild !== questEl) {
+        if (currentChild) {
+            activeQuestsList.insertBefore(questEl, currentChild);
+        } else {
+            activeQuestsList.appendChild(questEl);
+        }
+    }
+  });
+
+  // Remove excess elements
+  while (activeQuestsList.children.length > activeQuests.length) {
+      activeQuestsList.lastChild.remove();
+  }
+
+  if (hasNewElements) {
+    lucide.createIcons();
+    setTimeout(() => lucide.createIcons(), 50);
+  }
 }
 
 // Update achievements display
