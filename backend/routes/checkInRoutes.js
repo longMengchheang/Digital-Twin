@@ -11,7 +11,6 @@ router.get('/questions', authMiddleware, async (req, res) => {
 
     const existingActivity = await Activity.findOne({
       userId: req.user.id,
-      type: 'checkin',
       date: { $gte: today }
     });
 
@@ -45,7 +44,6 @@ router.post('/submit', authMiddleware, async (req, res) => {
     today.setHours(0, 0, 0, 0);
     const existingActivity = await Activity.findOne({
       userId: req.user.id,
-      type: 'checkin',
       date: { $gte: today }
     });
 
@@ -74,7 +72,7 @@ router.get('/results', authMiddleware, async (req, res) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const checkIn = await Activity.findOne({ userId: req.user.id, type: 'checkin', date: { $gte: today } });
+    const checkIn = await Activity.findOne({ userId: req.user.id, date: { $gte: today } });
     if (!checkIn) {
       return res.status(404).json({ msg: 'No check-in today' });
     }
@@ -87,7 +85,7 @@ router.get('/results', authMiddleware, async (req, res) => {
 // Get history
 router.get('/history', authMiddleware, async (req, res) => {
   try {
-    const history = await Activity.find({ userId: req.user.id, type: 'checkin' }).sort({ date: -1 }).limit(30);
+    const history = await Activity.find({ userId: req.user.id }).sort({ date: -1 }).limit(30);
     res.json(history);
   } catch (err) {
     res.status(500).json({ msg: 'Server error' });
