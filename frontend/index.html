@@ -328,7 +328,7 @@
         icon.style.color = iconColors[btnSection] || 'hsl(210 40% 98%)';
       });
       
-      const activeButton = document.querySelector(`.chat-item[onclick="showSection('${sectionId}'")`);
+      const activeButton = document.querySelector(`.chat-item[onclick="showSection('${sectionId}')"]`);
       if (activeButton) {
         activeButton.classList.add('active');
         activeButton.querySelector('.chat-item-icon').style.color = 'hsl(84 81% 44%)';
