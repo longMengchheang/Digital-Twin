@@ -77,7 +77,7 @@ router.post('/send', authMiddleware, async (req, res) => {
 router.get('/history', authMiddleware, async (req, res) => {
   try {
     // Fetch recent history.
-    // We increase limit to 20 to support legacy data (where 1 doc = 1 interaction).
+    //We increase limit to 20 to support legacy data (where 1 doc = 1 interaction).
     // Sort by updatedAt desc (new buckets) and _id desc (legacy fallbacks).
     const history = await Chat.find({ userId: req.user.id })
       .sort({ updatedAt: -1, _id: -1 })
