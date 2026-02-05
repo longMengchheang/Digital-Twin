@@ -3,7 +3,8 @@ import User from '@/lib/models/User';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { NextResponse } from 'next/server';
-import { JWT_SECRET } from '@/lib/config';
+
+const JWT_SECRET = process.env.JWT_SECRET || '4a8f5b3e2c1d9e7f6a5b4c3d2e1f0a9';
 
 export async function POST(req) {
   try {

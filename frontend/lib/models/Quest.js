@@ -17,6 +17,6 @@ function progressLimit(val) {
   return val.length === 1 && val[0] >= 0 && val[0] <= 100;
 }
 
-questSchema.index({ userId: 1, date: 1 });
+questSchema.index({ userId: 1, date: 1 }); // Optional, for querying by user and date
 
-module.exports = mongoose.models.Quest || mongoose.model('Quest', questSchema);
+module.exports = mongoose.model('Quest', questSchema);

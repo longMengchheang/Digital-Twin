@@ -17,4 +17,4 @@ function arrayLimit(val) {
 
 checkInSchema.index({ userId: 1, date: 1 }, { unique: true });
 
-module.exports = mongoose.models.CheckIn || mongoose.model('CheckIn', checkInSchema);
+module.exports = mongoose.model('CheckIn', checkInSchema);
