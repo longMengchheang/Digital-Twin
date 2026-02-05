@@ -54,7 +54,6 @@ router.post('/submit', authMiddleware, async (req, res) => {
     const overallScore = ratings.reduce((a, b) => a + b, 0);
     const activity = new Activity({
       userId: req.user.id,
-      type: 'checkin',
       ratings,
       overallScore
     });

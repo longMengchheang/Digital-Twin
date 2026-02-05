@@ -69,43 +69,6 @@ function initializeQuests() {
   updateDurationDisplay();
 }
 
-console.log('quest.js loaded');
-
-// Initialize quest functionality
-function initializeQuests() {
-  console.log('Initializing quests...');
-
-  // Fetch quests from backend
-  refreshQuests();
-
-  // Set up event listeners
-  const questForm = document.getElementById('quest-form');
-  if (!questForm) {
-    console.error('Quest form not found');
-    return;
-  }
-  questForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    handleQuestSubmit(e);
-  });
-
-  const questGoal = document.getElementById('quest-goal');
-  if (!questGoal) {
-    console.error('Quest goal input not found');
-    return;
-  }
-  questGoal.addEventListener('input', updateGoalLength);
-  updateGoalLength(); // Initialize character count
-
-  const questDuration = document.getElementById('quest-duration');
-  if (!questDuration) {
-    console.error('Quest duration select not found');
-    return;
-  }
-  questDuration.addEventListener('change', updateDurationDisplay);
-  updateDurationDisplay(); // Initialize duration display
-}
-
 // Fetch quests from backend
 async function fetchQuests() {
   try {
