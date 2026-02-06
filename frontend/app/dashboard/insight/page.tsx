@@ -51,6 +51,19 @@ interface WeeklyEvolution {
   focusDelta: number;
 }
 
+interface MapUpdate {
+  changed: boolean;
+  changeType: "initialized" | "new_pattern" | "connection_shift" | "rebalanced" | "stable";
+  message: string;
+}
+
+interface WeeklyReflection {
+  title: string;
+  dominantPattern: string;
+  improvement: string;
+  narrative: string;
+}
+
 interface BehaviorMapPayload {
   center: {
     id: string;
@@ -65,6 +78,13 @@ interface BehaviorMapPayload {
   };
   growthPath: GrowthPath | null;
   weeklyEvolution: WeeklyEvolution;
+  mapUpdate: MapUpdate;
+  weeklyReflection: WeeklyReflection;
+  dataWindow: {
+    signals24h: number;
+    signals7d: number;
+    signals30d: number;
+  };
   suggestions: string[];
   generatedAt: string;
 }
@@ -243,13 +263,23 @@ export default function MindMapPage() {
         </div>
         <h1 className="text-3xl font-semibold tracking-tight text-slate-900">A living mirror of your behavior patterns</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Nodes are generated from check-ins, quests, and chat signals. Connections are weighted by recurrence and correlation.
+          Nodes are generated from Daily Pulse, Quest Log, and Companion inputs. Connections are weighted by recurrence and correlation.
         </p>
       </header>
 
       {error && (
         <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">{error}</div>
       )}
+
+      <div
+        className={
+          mapData.mapUpdate.changed
+            ? "rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"
+            : "rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"
+        }
+      >
+        {mapData.mapUpdate.message}
+      </div>
 
       <section className="card-calm overflow-hidden">
         <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-6 py-4">
@@ -419,7 +449,17 @@ export default function MindMapPage() {
             </div>
           )}
 
-          <p className="mt-3 text-xs text-slate-500">Updated {formatTimestamp(mapData.generatedAt)}</p>
+          <div className="mt-3 space-y-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700">
+            <p className="font-semibold text-slate-900">{mapData.weeklyReflection.title}</p>
+            <p>{mapData.weeklyReflection.dominantPattern}</p>
+            <p>{mapData.weeklyReflection.improvement}</p>
+            <p className="text-slate-600">{mapData.weeklyReflection.narrative}</p>
+          </div>
+
+          <p className="mt-3 text-xs text-slate-500">
+            Updated {formatTimestamp(mapData.generatedAt)} • Signals 24h/7d/30d:{" "}
+            {mapData.dataWindow.signals24h}/{mapData.dataWindow.signals7d}/{mapData.dataWindow.signals30d}
+          </p>
         </article>
 
         <article className="card-calm p-5 text-left">

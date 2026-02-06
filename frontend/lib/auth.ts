@@ -1,23 +1,36 @@
-import jwt from 'jsonwebtoken';
+﻿import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || '4a8f5b3e2c1d9e7f6a5b4c3d2e1f0a9'; // Same as backend server.js fallback
+const JWT_SECRET = process.env.JWT_SECRET || '4a8f5b3e2c1d9e7f6a5b4c3d2e1f0a9';
 
 export interface DecodedUser {
   id: string;
-  [key: string]: any;
+  email?: string;
+  [key: string]: unknown;
 }
 
-export function verifyToken(req: any): DecodedUser | null {
+interface AuthPayload {
+  user: DecodedUser;
+}
+
+export function signToken(user: DecodedUser): string {
+  return jwt.sign({ user }, JWT_SECRET, { expiresIn: '7d' });
+}
+
+export function verifyToken(req: Request): DecodedUser | null {
   const authHeader = req.headers.get('authorization');
-  if (!authHeader) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return null;
   }
 
-  const token = authHeader.split(' ')[1];
+  const token = authHeader.slice(7).trim();
+  if (!token) {
+    return null;
+  }
+
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { user: DecodedUser };
+    const decoded = jwt.verify(token, JWT_SECRET) as AuthPayload;
     return decoded.user;
-  } catch (err) {
+  } catch {
     return null;
   }
 }

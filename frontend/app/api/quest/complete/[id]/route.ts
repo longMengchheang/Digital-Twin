@@ -1,9 +1,10 @@
-﻿import mongoose from 'mongoose';
+import mongoose from 'mongoose';
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
 import { normalizeDuration, QUEST_XP_REWARD } from '@/lib/progression';
 import { adjustUserXP } from '@/lib/user-progress';
+import { recordFeatureSignals } from '@/lib/neon/feature-signals';
 import Quest from '@/lib/models/Quest';
 
 export const dynamic = 'force-dynamic';
@@ -42,6 +43,26 @@ export async function PUT(req: Request, { params }: RouteContext) {
     const reward = QUEST_XP_REWARD[normalizeDuration(quest.duration)] || 0;
     const progression = await adjustUserXP(user.id, nextCompleted ? reward : -reward);
 
+    try {
+      await recordFeatureSignals({
+        userId: user.id,
+        source: 'quest_completion',
+        sourceRef: String(quest._id),
+        createdAt: new Date(),
+        signals: nextCompleted
+          ? [
+              { signalType: 'productivity', intensity: 5, confidence: 0.85 },
+              { signalType: 'confidence', intensity: 5, confidence: 0.88 },
+              { signalType: 'motivation', intensity: 4, confidence: 0.78 },
+            ]
+          : [
+              { signalType: 'procrastination', intensity: 2, confidence: 0.58 },
+            ],
+      });
+    } catch (signalError) {
+      console.error('Failed to persist quest completion feature signals:', signalError);
+    }
+
     return NextResponse.json({
       msg: nextCompleted ? 'Quest completed.' : 'Quest reopened.',
       quest,
@@ -52,3 +73,4 @@ export async function PUT(req: Request, { params }: RouteContext) {
     return NextResponse.json({ msg: 'Server error.' }, { status: 500 });
   }
 }
+

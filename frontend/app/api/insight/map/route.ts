@@ -1,19 +1,22 @@
-﻿import { NextResponse } from 'next/server';
+import { and, desc, eq, gte } from 'drizzle-orm';
+import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
+import { normalizeSignalType } from '@/lib/chatSignals';
 import CheckIn from '@/lib/models/CheckIn';
 import Quest from '@/lib/models/Quest';
-import ChatSignal from '@/lib/models/ChatSignal';
 import User from '@/lib/models/User';
-import { CHAT_SIGNAL_KEYS, ChatSignalKeyword, createEmptyChatSignalCounts } from '@/lib/chatSignals';
+import { getNeonDb } from '@/lib/neon/db';
+import { behaviorConnections, behaviorNodes, chatSignals, featureSignals } from '@/lib/neon/schema';
 
 export const dynamic = 'force-dynamic';
 
 type NodeType = 'Mood' | 'Signal' | 'Habit' | 'Routine' | 'Quest';
 type NodeState = 'low' | 'medium' | 'high';
 type EdgeStrength = 'weak' | 'medium' | 'strong';
+type Polarity = 'negative' | 'positive';
 
-interface InsightNode {
+type InsightNode = {
   id: string;
   label: string;
   type: NodeType;
@@ -24,134 +27,185 @@ interface InsightNode {
   summary: string;
   details: string[];
   suggestion: string;
-}
+};
 
-interface InsightEdge {
+type InsightEdge = {
   id: string;
   source: string;
   target: string;
   strength: EdgeStrength;
   score: number;
   reason: string;
-}
+};
 
-interface GrowthPath {
-  fromNodeId: string;
-  toNodeId: string;
+type UnifiedSignal = {
+  signalType: string;
+  intensity: number;
+  confidence: number;
+  source: string;
+  createdAt: Date;
+};
+
+type SignalMeta = {
   label: string;
+  nodeType: Exclude<NodeType, 'Mood' | 'Quest'>;
+  polarity: Polarity;
+  mood: 'low' | 'high';
+  suggestion: string;
+};
+
+type SignalStats = {
+  signalType: string;
+  label: string;
+  nodeType: Exclude<NodeType, 'Mood' | 'Quest'>;
+  polarity: Polarity;
+  suggestion: string;
+  recentAvg: number;
+  trendAvg: number;
+  blendedAvg: number;
+  currentWeekAvg: number;
+  previousWeekAvg: number;
+  delta: number;
+  strength: number;
+  dominantScore: number;
+  occ24: number;
+  occ7: number;
+  occPrev7: number;
+  sourceCounts7: Record<string, number>;
+  highDays7: Set<string>;
+};
+
+const DAY_MS = 86400000;
+const DECAY_FACTOR = 4.5;
+
+const SIGNAL_META: Record<string, SignalMeta> = {
+  stress: { label: 'Stress', nodeType: 'Signal', polarity: 'negative', mood: 'low', suggestion: 'Try a 5-minute breathing reset before high-load tasks.' },
+  anxiety: { label: 'Anxiety', nodeType: 'Signal', polarity: 'negative', mood: 'low', suggestion: 'Add one grounding note and one slow breathing cycle.' },
+  fatigue: { label: 'Fatigue', nodeType: 'Signal', polarity: 'negative', mood: 'low', suggestion: 'Protect sleep consistency and reduce late-day cognitive load.' },
+  procrastination: { label: 'Procrastination', nodeType: 'Signal', polarity: 'negative', mood: 'low', suggestion: 'Use a 10-minute starter task to break inertia.' },
+  focus: { label: 'Focus Routine', nodeType: 'Routine', polarity: 'positive', mood: 'high', suggestion: 'Protect one uninterrupted deep-work block daily.' },
+  productivity: { label: 'Productivity', nodeType: 'Routine', polarity: 'positive', mood: 'high', suggestion: 'Batch similar tasks to keep momentum high.' },
+  motivation: { label: 'Motivation', nodeType: 'Routine', polarity: 'positive', mood: 'high', suggestion: 'Convert motivation into one concrete next action.' },
+  confidence: { label: 'Confidence', nodeType: 'Habit', polarity: 'positive', mood: 'high', suggestion: 'Record one daily win to reinforce progress.' },
+  breathing: { label: 'Breathing Habit', nodeType: 'Habit', polarity: 'positive', mood: 'high', suggestion: 'Continue short breathing sessions around stress spikes.' },
+  mindfulness: { label: 'Mindfulness', nodeType: 'Habit', polarity: 'positive', mood: 'high', suggestion: 'Add one short evening reflection.' },
+};
+
+const SOURCE_WEIGHT: Record<string, number> = {
+  chat: 0.6,
+  companion: 0.6,
+  daily_pulse: 1.0,
+  quest_create: 0.8,
+  quest_progress: 0.7,
+  quest_completion: 0.9,
+  quest_log: 0.8,
+};
+
+const SOURCE_LABEL: Record<string, string> = {
+  chat: 'Companion',
+  companion: 'Companion',
+  daily_pulse: 'Daily Pulse',
+  quest_create: 'Quest Create',
+  quest_progress: 'Quest Progress',
+  quest_completion: 'Quest Completion',
+  quest_log: 'Quest Log',
+};
+
+const NODE_PALETTE: Record<NodeType, Record<NodeState, string>> = {
+  Mood: { low: '#fca5a5', medium: '#f59e0b', high: '#34d399' },
+  Signal: { low: '#fdba74', medium: '#fb923c', high: '#f97316' },
+  Habit: { low: '#9ae6b4', medium: '#34d399', high: '#10b981' },
+  Routine: { low: '#93c5fd', medium: '#60a5fa', high: '#3b82f6' },
+  Quest: { low: '#c4b5fd', medium: '#a78bfa', high: '#8b5cf6' },
+};
+
+const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+const clamp100 = (v: number) => clamp(Math.round(v), 0, 100);
+const avg = (arr: number[]) => (arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0);
+const startDay = (d: Date) => { const n = new Date(d); n.setHours(0, 0, 0, 0); return n; };
+const shiftDays = (d: Date, days: number) => { const n = new Date(d); n.setDate(n.getDate() + days); return n; };
+const toDayKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const state = (score: number): NodeState => (score >= 70 ? 'high' : score >= 45 ? 'medium' : 'low');
+const edgeStrength = (weight: number): EdgeStrength => (weight >= 70 ? 'strong' : weight >= 40 ? 'medium' : 'weak');
+const interSize = (a: Set<string>, b: Set<string>) => { let n = 0; a.forEach((v) => { if (b.has(v)) n += 1; }); return n; };
+
+function sourceWeight(source: string): number { return SOURCE_WEIGHT[source] ?? 0.65; }
+function decay(createdAt: Date, now: Date): number { return Math.exp(-Math.max(0, (now.getTime() - createdAt.getTime()) / DAY_MS) / DECAY_FACTOR); }
+
+function weightedAvg(rows: UnifiedSignal[], now: Date, useDecay: boolean): number {
+  let sum = 0;
+  let weight = 0;
+  for (const r of rows) {
+    const w = sourceWeight(r.source) * Math.max(0.35, clamp(r.confidence, 0, 1)) * (useDecay ? decay(r.createdAt, now) : 1);
+    sum += r.intensity * w;
+    weight += w;
+  }
+  return weight > 0 ? sum / weight : 0;
 }
 
-interface WeeklyEvolution {
-  moodDelta: number;
-  stressDelta: number;
-  focusDelta: number;
-}
-
-interface BehaviorMapResponse {
-  center: {
-    id: string;
-    label: string;
-    level: number;
-  };
-  nodes: InsightNode[];
-  edges: InsightEdge[];
-  highlight: {
-    edgeId?: string;
-    message: string;
-  };
-  growthPath: GrowthPath | null;
-  weeklyEvolution: WeeklyEvolution;
-  suggestions: string[];
-  generatedAt: string;
-}
-
-function dayStart(date: Date): Date {
-  const output = new Date(date);
-  output.setHours(0, 0, 0, 0);
-  return output;
-}
-
-function shiftDays(base: Date, days: number): Date {
-  const output = new Date(base);
-  output.setDate(output.getDate() + days);
-  return output;
-}
-
-function average(values: number[]): number {
-  if (!values.length) return 0;
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
-}
-
-function normalizeString(value: string): string {
-  return String(value || '').trim().toLowerCase();
-}
-
-function setIntersectionSize(a: Set<string>, b: Set<string>): number {
-  let hits = 0;
-  a.forEach((value) => {
-    if (b.has(value)) hits += 1;
+function highDays(rows: UnifiedSignal[], now: Date): Set<string> {
+  const bucket = new Map<string, { sum: number; w: number }>();
+  for (const r of rows) {
+    const k = toDayKey(r.createdAt);
+    const w = sourceWeight(r.source) * Math.max(0.35, clamp(r.confidence, 0, 1)) * decay(r.createdAt, now);
+    const prev = bucket.get(k) || { sum: 0, w: 0 };
+    prev.sum += r.intensity * w;
+    prev.w += w;
+    bucket.set(k, prev);
+  }
+  const out = new Set<string>();
+  bucket.forEach((v, k) => {
+    if (v.w > 0 && v.sum / v.w >= 3) {
+      out.add(k);
+    }
   });
-  return hits;
+  return out;
 }
 
-function strengthFromScore(score: number): EdgeStrength {
-  if (score >= 4) return 'strong';
-  if (score >= 2) return 'medium';
-  return 'weak';
+function sourceBreakdown(map: Record<string, number>): string {
+  const entries = Object.entries(map).filter(([, c]) => c > 0).sort((a, b) => b[1] - a[1]);
+  return entries.length ? entries.map(([s, c]) => `${SOURCE_LABEL[s] || s}: ${c}`).join(', ') : 'No source breakdown available.';
 }
 
-function colorForNode(type: NodeType, state: NodeState): string {
-  const palette: Record<NodeType, Record<NodeState, string>> = {
-    Mood: {
-      low: '#fca5a5',
-      medium: '#f59e0b',
-      high: '#34d399',
-    },
-    Signal: {
-      low: '#fdba74',
-      medium: '#fb923c',
-      high: '#f97316',
-    },
-    Habit: {
-      low: '#9ae6b4',
-      medium: '#34d399',
-      high: '#10b981',
-    },
-    Routine: {
-      low: '#93c5fd',
-      medium: '#60a5fa',
-      high: '#3b82f6',
-    },
-    Quest: {
-      low: '#c4b5fd',
-      medium: '#a78bfa',
-      high: '#8b5cf6',
-    },
-  };
-
-  return palette[type][state];
+function connectionWeight(support: number, sourceDays: number, targetDays: number): number {
+  const sourceCoverage = support / Math.max(1, sourceDays);
+  const targetCoverage = support / Math.max(1, targetDays);
+  const recurrence = support / 7;
+  return clamp100(support * 22 + sourceCoverage * 30 + targetCoverage * 18 + recurrence * 30);
 }
 
-function stateFromScore(score: number): NodeState {
-  if (score >= 70) return 'high';
-  if (score >= 45) return 'medium';
-  return 'low';
+function mapUpdate(
+  prevNodes: Array<{ nodeKey: string; label: string; strength: number; occurrences: number }>,
+  prevEdges: Array<{ fromNodeKey: string; toNodeKey: string; weight: number }>,
+  nextNodes: InsightNode[],
+  nextEdges: InsightEdge[],
+) {
+  if (!prevNodes.length && !prevEdges.length) {
+    return { changed: true, changeType: 'initialized' as const, message: 'Behavior map created from your recent activity.' };
+  }
+  const prevNode = new Map(prevNodes.map((n) => [n.nodeKey, n]));
+  const prevEdge = new Map(prevEdges.map((e) => [`${e.fromNodeKey}->${e.toNodeKey}`, e]));
+  const addedNode = nextNodes.find((n) => !prevNode.has(n.id));
+  if (addedNode) return { changed: true, changeType: 'new_pattern' as const, message: `New pattern detected: ${addedNode.label}.` };
+  const shifted = nextNodes.find((n) => { const p = prevNode.get(n.id); return p ? Math.abs(p.strength - n.score) >= 10 || Math.abs(p.occurrences - n.occurrences) >= 3 : false; });
+  const prevTop = [...prevEdges].sort((a, b) => b.weight - a.weight)[0];
+  const nextTop = [...nextEdges].sort((a, b) => b.score - a.score)[0];
+  const prevTopKey = prevTop ? `${prevTop.fromNodeKey}->${prevTop.toNodeKey}` : '';
+  const nextTopKey = nextTop ? `${nextTop.source}->${nextTop.target}` : '';
+  if (nextTop && nextTopKey !== prevTopKey) return { changed: true, changeType: 'connection_shift' as const, message: 'New primary connection detected.' };
+  const addedEdge = nextEdges.find((e) => !prevEdge.has(`${e.source}->${e.target}`));
+  if (addedEdge) return { changed: true, changeType: 'new_pattern' as const, message: 'New connection detected in your behavior web.' };
+  if (shifted) return { changed: true, changeType: 'rebalanced' as const, message: 'Your behavior map updated based on recent activity.' };
+  return { changed: false, changeType: 'stable' as const, message: 'No major behavior pattern shift detected since last update.' };
 }
 
-function formatDelta(value: number): string {
-  if (value > 0) return `+${value}`;
-  return `${value}`;
+function dbNodeType(type: NodeType): 'mood' | 'signal' | 'habit' | 'routine' | 'quest' {
+  if (type === 'Mood') return 'mood';
+  if (type === 'Signal') return 'signal';
+  if (type === 'Habit') return 'habit';
+  if (type === 'Routine') return 'routine';
+  return 'quest';
 }
-
-function clampTo100(value: number): number {
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
-
-function edgeRank(edge: InsightEdge): number {
-  const base = edge.strength === 'strong' ? 300 : edge.strength === 'medium' ? 200 : 100;
-  return base + edge.score;
-}
-
 export async function GET(req: Request) {
   try {
     await dbConnect();
@@ -162,402 +216,418 @@ export async function GET(req: Request) {
     }
 
     const now = new Date();
-    const today = dayStart(now);
-    const weekStart = shiftDays(today, -6);
-    const previousWeekStart = shiftDays(today, -13);
+    const today = startDay(now);
+    const start24h = new Date(now.getTime() - DAY_MS);
+    const start7d = shiftDays(today, -6);
+    const startPrev7d = shiftDays(today, -13);
+    const start30d = shiftDays(today, -29);
 
-    const [user, checkInsRaw, questsRaw, chatSignalsRaw] = await Promise.all([
+    const db = await getNeonDb();
+
+    const [user, checkInsRaw, questsRaw, chatRaw, featureRaw, prevNodes, prevEdges] = await Promise.all([
       User.findById(authUser.id).select('level').lean(),
-      CheckIn.find({ userId: authUser.id, date: { $gte: previousWeekStart } })
-        .sort({ date: -1 })
-        .lean(),
-      Quest.find({ userId: authUser.id })
-        .sort({ date: -1 })
-        .limit(60)
-        .lean(),
-      ChatSignal.find({ userId: authUser.id, date: { $gte: weekStart } })
-        .sort({ date: -1 })
-        .limit(200)
-        .lean(),
+      CheckIn.find({ userId: authUser.id, date: { $gte: start30d } }).sort({ date: -1 }).lean(),
+      Quest.find({ userId: authUser.id }).sort({ date: -1 }).limit(120).lean(),
+      db
+        .select({ signalType: chatSignals.signalType, intensity: chatSignals.intensity, confidence: chatSignals.confidence, createdAt: chatSignals.createdAt })
+        .from(chatSignals)
+        .where(and(eq(chatSignals.userId, authUser.id), gte(chatSignals.createdAt, start30d)))
+        .orderBy(desc(chatSignals.createdAt))
+        .limit(1600),
+      db
+        .select({ source: featureSignals.source, signalType: featureSignals.signalType, intensity: featureSignals.intensity, confidence: featureSignals.confidence, createdAt: featureSignals.createdAt })
+        .from(featureSignals)
+        .where(and(eq(featureSignals.userId, authUser.id), gte(featureSignals.createdAt, start30d)))
+        .orderBy(desc(featureSignals.createdAt))
+        .limit(1600),
+      db
+        .select({ nodeKey: behaviorNodes.nodeKey, label: behaviorNodes.label, strength: behaviorNodes.strength, occurrences: behaviorNodes.occurrences })
+        .from(behaviorNodes)
+        .where(eq(behaviorNodes.userId, authUser.id)),
+      db
+        .select({ fromNodeKey: behaviorConnections.fromNodeKey, toNodeKey: behaviorConnections.toNodeKey, weight: behaviorConnections.weight })
+        .from(behaviorConnections)
+        .where(eq(behaviorConnections.userId, authUser.id)),
     ]);
 
     if (!user) {
       return NextResponse.json({ msg: 'User not found.' }, { status: 404 });
     }
 
-    const checkIns = checkInsRaw.map((entry) => ({
-      dayKey: String(entry.dayKey || ''),
-      date: new Date(entry.date),
-      ratings: Array.isArray(entry.ratings) ? entry.ratings.map((value: number) => Number(value)) : [],
-      percentage: Number(entry.percentage || 0),
-    }));
-
-    const currentWeekCheckIns = checkIns.filter((entry) => entry.date >= weekStart);
-    const previousWeekCheckIns = checkIns.filter((entry) => entry.date < weekStart && entry.date >= previousWeekStart);
-
-    const currentMoodAvg = average(currentWeekCheckIns.map((entry) => entry.percentage));
-    const previousMoodAvg = average(previousWeekCheckIns.map((entry) => entry.percentage));
-    const moodDelta = currentMoodAvg - previousMoodAvg;
-
-    const currentStressDays = new Set(
-      currentWeekCheckIns
-        .filter((entry) => entry.ratings[2] <= 2)
-        .map((entry) => entry.dayKey),
-    );
-
-    const previousStressDays = new Set(
-      previousWeekCheckIns
-        .filter((entry) => entry.ratings[2] <= 2)
-        .map((entry) => entry.dayKey),
-    );
-
-    const currentFatigueDays = new Set(
-      currentWeekCheckIns
-        .filter((entry) => entry.ratings[0] <= 2)
-        .map((entry) => entry.dayKey),
-    );
-
-    const lowMoodDays = new Set(
-      currentWeekCheckIns
-        .filter((entry) => entry.percentage < 55)
-        .map((entry) => entry.dayKey),
-    );
-
-    const currentFocusDays = new Set(
-      currentWeekCheckIns
-        .filter((entry) => entry.ratings[1] >= 4)
-        .map((entry) => entry.dayKey),
-    );
-
-    const previousFocusDays = new Set(
-      previousWeekCheckIns
-        .filter((entry) => entry.ratings[1] >= 4)
-        .map((entry) => entry.dayKey),
-    );
-
-    const stressMoodCooccurrence = setIntersectionSize(currentStressDays, lowMoodDays);
-    const fatigueMoodCooccurrence = setIntersectionSize(currentFatigueDays, lowMoodDays);
-
-    const stressCount = currentStressDays.size;
-    const fatigueCount = currentFatigueDays.size;
-    const focusCount = currentFocusDays.size;
-
-    const activeQuest = questsRaw.find((quest) => !quest.completed) || null;
-    const completedQuests = questsRaw.filter((quest) => quest.completed);
-
-    const chatTopicCounts = createEmptyChatSignalCounts();
-    const allowedKeywordSet = new Set<string>(CHAT_SIGNAL_KEYS);
-
-    for (const signal of chatSignalsRaw) {
-      const keyword = String(signal.keyword || '').trim();
-      const count = Number(signal.count || 0);
-
-      if (!allowedKeywordSet.has(keyword)) {
-        continue;
-      }
-      if (!Number.isFinite(count) || count <= 0) {
-        continue;
-      }
-
-      chatTopicCounts[keyword as ChatSignalKeyword] += Math.round(count);
-    }
-
-    const habitBuckets = [
-      {
-        key: 'breathing',
-        label: 'Breathing Habit',
-        suggestion: 'Schedule a 5-minute breathing reset after high-stress blocks.',
-        keywords: ['breath', 'breathing'],
-        count: chatTopicCounts.breathing,
-      },
-      {
-        key: 'reflection',
-        label: 'Reflection Habit',
-        suggestion: 'Capture one short reflection each evening to stabilize mood.',
-        keywords: ['reflect', 'reflection', 'journal', 'gratitude', 'mindful'],
-        count: chatTopicCounts.reflection,
-      },
-      {
-        key: 'exercise',
-        label: 'Exercise Habit',
-        suggestion: 'Add one short movement session on low-energy days.',
-        keywords: ['exercise', 'workout', 'gym', 'walk', 'run', 'yoga'],
-        count: chatTopicCounts.exercise,
-      },
-    ];
-
-    for (const quest of completedQuests) {
-      const questText = normalizeString(String(quest.goal || ''));
-      for (const bucket of habitBuckets) {
-        if (bucket.keywords.some((keyword) => questText.includes(keyword))) {
-          bucket.count += 2;
-        }
-      }
-    }
-
-    const topHabit = [...habitBuckets].sort((a, b) => b.count - a.count)[0];
-
-    const focusRoutineCount = focusCount + chatTopicCounts.focus + Math.max(0, chatTopicCounts.motivation - 1);
-
-    const signalCandidates = [
-      {
-        id: 'signal-stress',
-        label: 'Stress Signal',
-        count: stressCount + chatTopicCounts.stress,
-        cooccurrence: stressMoodCooccurrence,
-        suggestion: 'Insert a breathing break right after long work sessions.',
-      },
-      {
-        id: 'signal-fatigue',
-        label: 'Fatigue Signal',
-        count: fatigueCount + chatTopicCounts.fatigue,
-        cooccurrence: fatigueMoodCooccurrence,
-        suggestion: 'Protect sleep consistency and reduce late-day cognitive load.',
-      },
-    ].sort((a, b) => {
-      if (b.cooccurrence !== a.cooccurrence) return b.cooccurrence - a.cooccurrence;
-      return b.count - a.count;
+    const checkIns = checkInsRaw.map((entry) => {
+      const date = new Date(entry.date);
+      return {
+        date,
+        dayKey: String(entry.dayKey || toDayKey(date)),
+        ratings: Array.isArray(entry.ratings) ? entry.ratings.map((v: number) => Number(v)) : [],
+        percentage: clamp(Number(entry.percentage || 0), 0, 100),
+      };
     });
 
-    const topSignal = signalCandidates.find((candidate) => candidate.count > 0) || null;
+    const weekCheckIns = checkIns.filter((c) => c.date >= start7d);
+    const prevWeekCheckIns = checkIns.filter((c) => c.date >= startPrev7d && c.date < start7d);
+    const moodWeek = avg(weekCheckIns.map((c) => c.percentage));
+    const moodPrevWeek = avg(prevWeekCheckIns.map((c) => c.percentage));
+    const mood30 = avg(checkIns.map((c) => c.percentage));
+    const moodDelta = moodWeek - moodPrevWeek;
 
-    const nodes: InsightNode[] = [];
-    const edges: InsightEdge[] = [];
+    const lowMoodDays = new Set(weekCheckIns.filter((c) => c.percentage < 55).map((c) => c.dayKey));
+    const highMoodDays = new Set(weekCheckIns.filter((c) => c.percentage >= 70).map((c) => c.dayKey));
+    const focusCheckInDays = new Set(weekCheckIns.filter((c) => Number(c.ratings[1] || 0) >= 4).map((c) => c.dayKey));
+    const focusPrevCheckInDays = new Set(prevWeekCheckIns.filter((c) => Number(c.ratings[1] || 0) >= 4).map((c) => c.dayKey));
 
-    const moodScore = clampTo100(currentMoodAvg || 50);
-    const moodState = stateFromScore(moodScore);
+    const signals: UnifiedSignal[] = [];
+    for (const row of chatRaw) {
+      const t = normalizeSignalType(row.signalType);
+      if (!t) continue;
+      signals.push({
+        signalType: t,
+        intensity: clamp(Number(row.intensity || 0), 1, 5),
+        confidence: clamp(Number(row.confidence || 0), 0, 1),
+        source: 'chat',
+        createdAt: new Date(row.createdAt || now),
+      });
+    }
 
-    nodes.push({
+    for (const row of featureRaw) {
+      const t = normalizeSignalType(row.signalType);
+      if (!t) continue;
+      signals.push({
+        signalType: t,
+        intensity: clamp(Number(row.intensity || 0), 1, 5),
+        confidence: clamp(Number(row.confidence || 0), 0, 1),
+        source: String(row.source || 'daily_pulse').trim() || 'daily_pulse',
+        createdAt: new Date(row.createdAt || now),
+      });
+    }
+
+    const signals24 = signals.filter((s) => s.createdAt >= start24h);
+    const signals7 = signals.filter((s) => s.createdAt >= start7d);
+    const signalsPrev7 = signals.filter((s) => s.createdAt >= startPrev7d && s.createdAt < start7d);
+
+    const stats: SignalStats[] = [];
+    for (const signalType of Object.keys(SIGNAL_META)) {
+      const meta = SIGNAL_META[signalType];
+      const rows30 = signals.filter((s) => s.signalType === signalType);
+      const rows7 = signals7.filter((s) => s.signalType === signalType);
+      const rows24 = signals24.filter((s) => s.signalType === signalType);
+      const rowsPrev = signalsPrev7.filter((s) => s.signalType === signalType);
+      if (!rows30.length && !rows7.length && !rowsPrev.length) continue;
+
+      const recentAvg = weightedAvg(rows7, now, true);
+      const trendAvg = weightedAvg(rows30, now, true);
+      const blendedAvg = recentAvg * 0.7 + trendAvg * 0.3;
+      const strength = clamp100((blendedAvg / 5) * 100 * (0.85 + Math.min(0.3, rows7.length / 14)));
+      const currentWeekAvg = weightedAvg(rows7, now, false);
+      const previousWeekAvg = weightedAvg(rowsPrev, now, false);
+      const delta = currentWeekAvg - previousWeekAvg;
+
+      const sourceCounts7: Record<string, number> = {};
+      for (const r of rows7) sourceCounts7[r.source] = (sourceCounts7[r.source] || 0) + 1;
+
+      stats.push({
+        signalType,
+        label: meta.label,
+        nodeType: meta.nodeType,
+        polarity: meta.polarity,
+        suggestion: meta.suggestion,
+        recentAvg,
+        trendAvg,
+        blendedAvg,
+        currentWeekAvg,
+        previousWeekAvg,
+        delta,
+        strength,
+        dominantScore: blendedAvg * (1 + rows7.length / 7),
+        occ24: rows24.length,
+        occ7: rows7.length,
+        occPrev7: rowsPrev.length,
+        sourceCounts7,
+        highDays7: highDays(rows7, now),
+      });
+    }
+
+    const statsMap = new Map(stats.map((s) => [s.signalType, s]));
+
+    const moodBlend = (moodWeek || mood30 || 50) * 0.7 + (mood30 || moodWeek || 50) * 0.3;
+    const moodScore = clamp100(moodBlend);
+    const moodNode: InsightNode = {
       id: 'node-mood',
       label: 'Mood',
       type: 'Mood',
-      color: colorForNode('Mood', moodState),
-      state: moodState,
+      color: NODE_PALETTE.Mood[state(moodScore)],
+      state: state(moodScore),
       score: moodScore,
-      occurrences: currentWeekCheckIns.length,
-      summary: `Average mood ${Math.round(currentMoodAvg || 0)}% this week (${formatDelta(Math.round(moodDelta))} vs last week).`,
+      occurrences: weekCheckIns.length,
+      summary: `Weekly mood average is ${Math.round(moodWeek || 0)}% (${Math.round(moodDelta) >= 0 ? '+' : ''}${Math.round(moodDelta)} vs last week).`,
       details: [
-        `${currentWeekCheckIns.length} check-ins captured this week.`,
-        `${lowMoodDays.size} low-mood days detected in the last 7 days.`,
+        `Daily Pulse entries this week: ${weekCheckIns.length}`,
+        `Low mood days: ${lowMoodDays.size}, high mood days: ${highMoodDays.size}`,
+        `30-day mood baseline: ${Math.round(mood30 || 0)}%`,
       ],
-      suggestion: moodScore < 55
-        ? 'Prioritize one small recovery routine before high-load tasks.'
-        : 'Keep reinforcing routines that protect your emotional baseline.',
-    });
+      suggestion: moodScore < 55 ? 'Protect one recovery block before your hardest task each day.' : 'Keep reinforcing routines that stabilize your baseline.',
+    };
 
-    if (topSignal) {
-      const signalScore = clampTo100(topSignal.count * 18 + topSignal.cooccurrence * 14);
-      const signalState: NodeState = topSignal.count >= 4 || topSignal.cooccurrence >= 3 ? 'high' : topSignal.count >= 2 ? 'medium' : 'low';
-
-      nodes.push({
-        id: topSignal.id,
-        label: topSignal.label,
-        type: 'Signal',
-        color: colorForNode('Signal', signalState),
-        state: signalState,
-        score: signalScore,
-        occurrences: topSignal.count,
-        summary: `${topSignal.label} appeared ${topSignal.count} times this week.`,
-        details: [
-          `${topSignal.cooccurrence} overlap day(s) with low mood in the last 7 days.`,
-          'Recurring negative signal detected from weekly behavior patterning.',
-        ],
-        suggestion: topSignal.suggestion,
-      });
-
-      if (topSignal.cooccurrence > 0) {
-        const edgeScore = Math.max(1, topSignal.cooccurrence);
-        edges.push({
-          id: `${topSignal.id}-to-mood`,
-          source: topSignal.id,
-          target: 'node-mood',
-          strength: strengthFromScore(edgeScore),
-          score: edgeScore,
-          reason: `${topSignal.label} and lower mood appeared together ${topSignal.cooccurrence} time(s) this week.`,
-        });
+    const questDays = new Set<string>();
+    for (const row of featureRaw) {
+      const src = String(row.source || '').trim();
+      if (!src.startsWith('quest') && src !== 'quest_log') continue;
+      const dt = new Date(row.createdAt || now);
+      if (dt >= start7d) questDays.add(toDayKey(dt));
+    }
+    for (const q of questsRaw) {
+      const created = new Date(q.date);
+      if (created >= start7d) questDays.add(toDayKey(created));
+      if (q.completedDate) {
+        const done = new Date(q.completedDate);
+        if (done >= start7d) questDays.add(toDayKey(done));
       }
     }
 
-    if (topHabit && topHabit.count > 0) {
-      const habitScore = clampTo100(topHabit.count * 16 + Math.max(0, moodDelta) * 2);
-      const habitState: NodeState = topHabit.count >= 5 ? 'high' : topHabit.count >= 3 ? 'medium' : 'low';
+    const nodes: InsightNode[] = [moodNode];
+    const activeQuest = questsRaw.find((q) => !q.completed) || null;
+    const latestQuest = activeQuest || questsRaw[0] || null;
+    const doneCount = questsRaw.filter((q) => q.completed).length;
+    const completionRate = questsRaw.length ? doneCount / questsRaw.length : 0;
 
-      nodes.push({
-        id: `habit-${topHabit.key}`,
-        label: topHabit.label,
-        type: 'Habit',
-        color: colorForNode('Habit', habitState),
-        state: habitState,
-        score: habitScore,
-        occurrences: topHabit.count,
-        summary: `${topHabit.label} recurred ${topHabit.count} time(s) across chat and quest completion data.`,
-        details: [
-          'Positive recurring action detected from historical behavior signals.',
-          `Mood trend this week: ${formatDelta(Math.round(moodDelta))}.`,
-        ],
-        suggestion: topHabit.suggestion,
-      });
-
-      const supportScore = Math.max(1, Math.round(topHabit.count / 2) + (moodDelta > 0 ? 1 : 0));
-      edges.push({
-        id: `habit-${topHabit.key}-to-mood`,
-        source: `habit-${topHabit.key}`,
-        target: 'node-mood',
-        strength: strengthFromScore(supportScore),
-        score: supportScore,
-        reason: `${topHabit.label} is associated with mood stabilization in your weekly pattern.`,
-      });
-    }
-
-    if (focusRoutineCount > 0) {
-      const routineScore = clampTo100(focusRoutineCount * 14 + focusCount * 6);
-      const routineState = stateFromScore(routineScore);
-      nodes.push({
-        id: 'routine-focus',
-        label: 'Focus Routine',
-        type: 'Routine',
-        color: colorForNode('Routine', routineState),
-        state: routineState,
-        score: routineScore,
-        occurrences: focusRoutineCount,
-        summary: `Focus signal appeared ${focusRoutineCount} time(s) this week across check-ins and chat.`,
-        details: [
-          `${focusCount} high-focus check-in day(s) this week.`,
-          `${chatTopicCounts.focus} focus-related chat mention(s).`,
-        ],
-        suggestion: 'Protect one uninterrupted deep-work block and review quest progress after.',
-      });
-    }
-
-    if (activeQuest) {
-      const questProgress = Array.isArray(activeQuest.ratings) ? Number(activeQuest.ratings[0] || 0) : 0;
-      const questScore = clampTo100(questProgress);
-      const questState = stateFromScore(questScore);
-      const questLabel = String(activeQuest.goal || 'Active Quest').trim();
-      const compactLabel = questLabel.length > 24 ? `${questLabel.slice(0, 21)}...` : questLabel;
-
+    if (latestQuest) {
+      const progress = clamp(Array.isArray(latestQuest.ratings) ? Number(latestQuest.ratings[0] || 0) : 0, 0, 100);
+      const questScore = latestQuest.completed ? 100 : clamp100(progress * 0.8 + completionRate * 20);
+      const labelRaw = String(latestQuest.goal || 'Quest').trim() || 'Quest';
       nodes.push({
         id: 'quest-active',
-        label: compactLabel,
+        label: labelRaw.length > 24 ? `${labelRaw.slice(0, 21)}...` : labelRaw,
         type: 'Quest',
-        color: colorForNode('Quest', questState),
-        state: questState,
+        color: NODE_PALETTE.Quest[state(questScore)],
+        state: state(questScore),
         score: questScore,
-        occurrences: 1,
-        summary: `Current quest progress is ${Math.round(questProgress)}%.`,
+        occurrences: questDays.size || 1,
+        summary: latestQuest.completed ? 'Most recent quest is completed.' : `Current quest progress is ${Math.round(progress)}%.`,
         details: [
-          `Duration: ${String(activeQuest.duration || 'daily')}.`,
-          `Created ${new Date(activeQuest.date).toLocaleDateString()}.`,
+          `Quest activities in last 7 days: ${questDays.size}`,
+          `Completion rate: ${Math.round(completionRate * 100)}%`,
+          `Duration: ${String(latestQuest.duration || 'daily')}`,
         ],
-        suggestion: 'Advance this quest right after your strongest focus window each day.',
+        suggestion: latestQuest.completed ? 'Use this momentum to start the next focused quest.' : 'Align this quest with your strongest focus window.',
       });
+    }
 
-      if (focusRoutineCount > 0) {
-        const focusQuestScore = Math.max(1, Math.round((focusCount + questProgress / 25) / 2));
-        edges.push({
-          id: 'focus-to-quest',
-          source: 'routine-focus',
-          target: 'quest-active',
-          strength: strengthFromScore(focusQuestScore),
-          score: focusQuestScore,
-          reason: 'Focused days are reinforcing your active quest completion momentum.',
-        });
-      }
-
-      if (questProgress >= 40 && currentMoodAvg >= 55) {
-        const questMoodScore = Math.max(1, Math.round(questProgress / 25));
-        edges.push({
-          id: 'quest-to-mood',
-          source: 'quest-active',
-          target: 'node-mood',
-          strength: strengthFromScore(questMoodScore),
-          score: questMoodScore,
-          reason: 'Quest progress is positively associated with higher mood stability this week.',
-        });
-      }
+    const ranked = [...stats].sort((a, b) => b.dominantScore - a.dominantScore).filter((s) => s.occ7 > 0 || s.strength >= 45);
+    for (const s of ranked) {
+      if (nodes.length >= 5) break;
+      const st = state(s.strength);
+      const details = [
+        `Detected in ${s.occ7} signal(s) this week`,
+        `Sources: ${sourceBreakdown(s.sourceCounts7)}`,
+        `Average intensity: ${s.currentWeekAvg.toFixed(1)}/5`,
+      ];
+      if (s.previousWeekAvg > 0) details.push(`Week-over-week change: ${s.delta > 0 ? '+' : ''}${s.delta.toFixed(1)}`);
+      nodes.push({
+        id: `signal-${s.signalType}`,
+        label: s.label,
+        type: s.nodeType,
+        color: NODE_PALETTE[s.nodeType][st],
+        state: st,
+        score: s.strength,
+        occurrences: s.occ7,
+        summary: `${s.label} appears ${s.occ7} time(s) this week with blended intensity ${s.blendedAvg.toFixed(1)}/5.`,
+        details,
+        suggestion: s.suggestion,
+      });
     }
 
     if (nodes.length < 3) {
-      const fallbackScore = clampTo100(currentWeekCheckIns.length * 20);
-      const fallbackState = stateFromScore(fallbackScore);
-
+      const score = clamp100(weekCheckIns.length * 18);
       nodes.push({
         id: 'routine-consistency',
         label: 'Consistency Routine',
         type: 'Routine',
-        color: colorForNode('Routine', fallbackState),
-        state: fallbackState,
-        score: fallbackScore,
-        occurrences: currentWeekCheckIns.length,
-        summary: `You checked in ${currentWeekCheckIns.length} time(s) this week.`,
-        details: ['Consistency tracking is now active and will build stronger signals over time.'],
-        suggestion: 'Maintain daily pulse entries to unlock richer behavior correlations.',
-      });
-
-      edges.push({
-        id: 'consistency-to-mood',
-        source: 'routine-consistency',
-        target: 'node-mood',
-        strength: 'weak',
-        score: 1,
-        reason: 'Consistent check-ins improve behavior signal quality over time.',
+        color: NODE_PALETTE.Routine[state(score)],
+        state: state(score),
+        score,
+        occurrences: weekCheckIns.length,
+        summary: `You logged ${weekCheckIns.length} Daily Pulse entries this week.`,
+        details: ['More recurring data will increase map accuracy and connection quality.'],
+        suggestion: 'Keep daily check-ins consistent to strengthen behavior intelligence.',
       });
     }
 
-    const outerNodes = nodes.slice(0, 5);
-    const filteredNodeIds = new Set(outerNodes.map((node) => node.id));
-    const filteredEdges = edges.filter((edge) => filteredNodeIds.has(edge.source) && filteredNodeIds.has(edge.target));
+    const selected = new Set(nodes.map((n) => n.id));
+    const edges: InsightEdge[] = [];
+    const signalNodes = nodes
+      .filter((n) => n.id.startsWith('signal-'))
+      .map((n) => ({ n, t: n.id.replace(/^signal-/, ''), s: statsMap.get(n.id.replace(/^signal-/, '')) }))
+      .filter((x) => Boolean(x.s)) as Array<{ n: InsightNode; t: string; s: SignalStats }>;
 
-    const bestEdge = [...filteredEdges].sort((a, b) => edgeRank(b) - edgeRank(a))[0];
-
-    const highlightMessage = bestEdge
-      ? bestEdge.reason
-      : 'Collect a few more check-ins this week to unlock stronger behavior intelligence links.';
-
-    let growthPath: GrowthPath | null = null;
-    if (filteredNodeIds.has('signal-stress') && Array.from(filteredNodeIds).some((id) => id.startsWith('habit-'))) {
-      const habitNode = outerNodes.find((node) => node.id.startsWith('habit-'));
-      if (habitNode) {
-        growthPath = {
-          fromNodeId: 'signal-stress',
-          toNodeId: habitNode.id,
-          label: 'Current growth path: convert stress spikes into intentional recovery.',
-        };
+    for (const x of signalNodes) {
+      const meta = SIGNAL_META[x.t];
+      const moodDays = meta.mood === 'low' ? lowMoodDays : highMoodDays;
+      const supportMood = interSize(x.s.highDays7, moodDays);
+      if (supportMood > 0 && selected.has('node-mood')) {
+        const w = connectionWeight(supportMood, x.s.highDays7.size, moodDays.size);
+        edges.push({
+          id: `${x.n.id}-to-node-mood`,
+          source: x.n.id,
+          target: 'node-mood',
+          strength: edgeStrength(w),
+          score: w,
+          reason: meta.mood === 'low'
+            ? `${x.n.label} co-occurred with lower mood on ${supportMood} day(s) this week.`
+            : `${x.n.label} co-occurred with higher mood on ${supportMood} day(s) this week.`,
+        });
       }
-    } else if (filteredNodeIds.has('routine-focus') && filteredNodeIds.has('quest-active')) {
-      growthPath = {
-        fromNodeId: 'routine-focus',
-        toNodeId: 'quest-active',
-        label: 'Current growth path: channel focus windows into quest execution.',
-      };
+
+      if (selected.has('quest-active') && ['focus', 'productivity', 'motivation', 'confidence', 'procrastination'].includes(x.t)) {
+        const supportQuest = interSize(x.s.highDays7, questDays);
+        if (supportQuest > 0) {
+          const w = connectionWeight(supportQuest, x.s.highDays7.size, questDays.size);
+          edges.push({
+            id: `${x.n.id}-to-quest-active`,
+            source: x.n.id,
+            target: 'quest-active',
+            strength: edgeStrength(w),
+            score: w,
+            reason: x.t === 'procrastination'
+              ? `Procrastination aligned with quest friction on ${supportQuest} day(s) this week.`
+              : `${x.n.label} supported quest activity on ${supportQuest} day(s) this week.`,
+          });
+        }
+      }
     }
 
-    const response: BehaviorMapResponse = {
-      center: {
-        id: 'you',
-        label: 'You',
-        level: Number(user.level || 1),
-      },
-      nodes: outerNodes,
+    if (selected.has('quest-active') && selected.has('node-mood')) {
+      const support = interSize(questDays, highMoodDays);
+      if (support > 0) {
+        const w = connectionWeight(support, questDays.size, highMoodDays.size);
+        edges.push({
+          id: 'quest-active-to-node-mood',
+          source: 'quest-active',
+          target: 'node-mood',
+          strength: edgeStrength(w),
+          score: w,
+          reason: `Quest activity aligned with higher mood on ${support} day(s) this week.`,
+        });
+      }
+    }
+
+    if (!edges.length && nodes.length > 1) {
+      const fallback = nodes.find((n) => n.id !== 'node-mood');
+      if (fallback) {
+        edges.push({
+          id: `${fallback.id}-to-node-mood`,
+          source: fallback.id,
+          target: 'node-mood',
+          strength: 'weak',
+          score: 24,
+          reason: 'More recurring data is needed to strengthen behavior connections.',
+        });
+      }
+    }
+
+    const filteredEdges = edges.filter((e) => selected.has(e.source) && selected.has(e.target));
+    const bestEdge = [...filteredEdges].sort((a, b) => b.score - a.score)[0];
+    const dominant = [...stats].sort((a, b) => b.dominantScore - a.dominantScore)[0];
+    const improvement = stats
+      .map((s) => ({ s, score: s.polarity === 'negative' ? -s.delta : s.delta, ok: s.polarity === 'negative' ? s.delta <= -0.3 : s.delta >= 0.3 }))
+      .filter((x) => x.ok)
+      .sort((a, b) => b.score - a.score)[0];
+
+    const dominantText = dominant
+      ? `${dominant.label} is the strongest influence this week (${dominant.currentWeekAvg.toFixed(1)}/5).`
+      : 'Not enough recurring signal data yet to determine a dominant pattern.';
+
+    const improvementText = improvement
+      ? improvement.s.polarity === 'negative'
+        ? `${improvement.s.label} is improving (${improvement.s.delta > 0 ? '+' : ''}${improvement.s.delta.toFixed(1)} week over week).`
+        : `${improvement.s.label} is strengthening (${improvement.s.delta > 0 ? '+' : ''}${improvement.s.delta.toFixed(1)} week over week).`
+      : moodDelta >= 4
+        ? 'Mood trend improved compared with last week.'
+        : 'No major improvement trend detected yet this week.';
+
+    const narrative = dominant
+      ? `${dominant.label} is currently driving most behavior signals. ${bestEdge ? bestEdge.reason : 'Connection confidence is still building.'} ${improvement ? 'A positive trend is also visible in recent data.' : 'Keep feeding Daily Pulse, Quest Log, and Companion for better recommendations.'}`
+      : 'Your map is building history. Continue daily pulse entries, quest updates, and companion messages to unlock higher-confidence insights.';
+
+    let growthPath: { fromNodeId: string; toNodeId: string; label: string } | null = null;
+    const neg = signalNodes.filter((x) => x.s.polarity === 'negative').sort((a, b) => b.s.dominantScore - a.s.dominantScore)[0];
+    const pos = signalNodes.filter((x) => ['breathing', 'mindfulness', 'focus'].includes(x.t)).sort((a, b) => b.s.dominantScore - a.s.dominantScore)[0];
+    if (neg && pos && neg.n.id !== pos.n.id) {
+      growthPath = {
+        fromNodeId: neg.n.id,
+        toNodeId: pos.n.id,
+        label: `Growth direction: redirect ${neg.n.label.toLowerCase()} into ${pos.n.label.toLowerCase()}.`,
+      };
+    } else if (selected.has('quest-active')) {
+      const focus = signalNodes.find((x) => x.t === 'focus');
+      if (focus) growthPath = { fromNodeId: focus.n.id, toNodeId: 'quest-active', label: 'Growth direction: use focus windows to accelerate quest execution.' };
+    }
+
+    const update = mapUpdate(
+      prevNodes.map((n) => ({ nodeKey: n.nodeKey, label: n.label, strength: Number(n.strength || 0), occurrences: Number(n.occurrences || 0) })),
+      prevEdges.map((e) => ({ fromNodeKey: e.fromNodeKey, toNodeKey: e.toNodeKey, weight: Number(e.weight || 0) })),
+      nodes,
+      filteredEdges,
+    );
+
+    const ts = new Date();
+    await db.delete(behaviorConnections).where(eq(behaviorConnections.userId, authUser.id));
+    await db.delete(behaviorNodes).where(eq(behaviorNodes.userId, authUser.id));
+    if (nodes.length) {
+      await db.insert(behaviorNodes).values(nodes.map((n) => ({
+        userId: authUser.id,
+        nodeKey: n.id,
+        nodeType: dbNodeType(n.type),
+        label: n.label,
+        strength: n.score,
+        occurrences: n.occurrences,
+        lastUpdated: ts,
+        createdAt: ts,
+        updatedAt: ts,
+      })));
+    }
+    if (filteredEdges.length) {
+      await db.insert(behaviorConnections).values(filteredEdges.map((e) => ({
+        userId: authUser.id,
+        fromNodeKey: e.source,
+        toNodeKey: e.target,
+        weight: e.score,
+        reason: e.reason,
+        lastUpdated: ts,
+        createdAt: ts,
+        updatedAt: ts,
+      })));
+    }
+
+    const suggestions = nodes.map((n) => n.suggestion).filter((v, i, arr) => v && arr.indexOf(v) === i).slice(0, 4);
+    const stress = statsMap.get('stress');
+    const focus = statsMap.get('focus');
+
+    return NextResponse.json({
+      center: { id: 'you', label: 'You', level: Math.max(1, Number(user.level || 1)) },
+      nodes: nodes.slice(0, 5),
       edges: filteredEdges,
-      highlight: {
-        edgeId: bestEdge?.id,
-        message: highlightMessage,
-      },
+      highlight: { edgeId: bestEdge?.id, message: bestEdge?.reason || dominantText },
+      mapUpdate: update,
       growthPath,
       weeklyEvolution: {
         moodDelta: Math.round(moodDelta),
-        stressDelta: currentStressDays.size - previousStressDays.size,
-        focusDelta: currentFocusDays.size - previousFocusDays.size,
+        stressDelta: (stress?.occ7 || 0) - (stress?.occPrev7 || 0),
+        focusDelta: focusCheckInDays.size - focusPrevCheckInDays.size + ((focus?.occ7 || 0) - (focus?.occPrev7 || 0)),
       },
-      suggestions: outerNodes
-        .map((node) => node.suggestion)
-        .filter((value, index, array) => value && array.indexOf(value) === index)
-        .slice(0, 3),
+      weeklyReflection: {
+        title: 'Weekly Reflection',
+        dominantPattern: dominantText,
+        improvement: improvementText,
+        narrative,
+      },
+      dataWindow: {
+        signals24h: signals24.length,
+        signals7d: signals7.length,
+        signals30d: signals.length,
+      },
+      suggestions,
       generatedAt: now.toISOString(),
-    };
-
-    return NextResponse.json(response);
+    });
   } catch (error) {
     console.error('Insight map error:', error);
     return NextResponse.json({ msg: 'Server error.' }, { status: 500 });

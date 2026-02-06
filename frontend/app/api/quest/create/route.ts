@@ -1,7 +1,8 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
 import { normalizeDuration } from '@/lib/progression';
+import { recordFeatureSignals } from '@/lib/neon/feature-signals';
 import Quest from '@/lib/models/Quest';
 
 export const dynamic = 'force-dynamic';
@@ -44,6 +45,21 @@ export async function POST(req: Request) {
 
     await quest.save();
 
+    try {
+      await recordFeatureSignals({
+        userId: user.id,
+        source: 'quest_create',
+        sourceRef: String(quest._id),
+        createdAt: new Date(quest.date),
+        signals: [
+          { signalType: 'motivation', intensity: 3, confidence: 0.7 },
+          { signalType: 'confidence', intensity: 2, confidence: 0.62 },
+        ],
+      });
+    } catch (signalError) {
+      console.error('Failed to persist quest create feature signals:', signalError);
+    }
+
     return NextResponse.json({
       msg: 'Quest created.',
       quest,
@@ -53,3 +69,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ msg: 'Server error.' }, { status: 500 });
   }
 }
+
