@@ -1,33 +1,55 @@
+﻿import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import Quest from '@/lib/models/Quest';
 import { verifyToken } from '@/lib/auth';
-import { NextResponse } from 'next/server';
+import { normalizeDuration } from '@/lib/progression';
+import Quest from '@/lib/models/Quest';
 
-export async function POST(req) {
+export const dynamic = 'force-dynamic';
+
+interface CreateQuestPayload {
+  goal?: string;
+  duration?: string;
+}
+
+export async function POST(req: Request) {
   try {
     await dbConnect();
+
     const user = verifyToken(req);
     if (!user) {
-      return NextResponse.json({ msg: 'No token, authorization denied' }, { status: 401 });
+      return NextResponse.json({ msg: 'No token, authorization denied.' }, { status: 401 });
     }
 
-    const { goal, duration } = await req.json();
-    if (!goal || !duration) {
-      return NextResponse.json({ msg: 'Goal and duration are required' }, { status: 400 });
+    const body = (await req.json()) as CreateQuestPayload;
+    const goal = String(body.goal || '').trim();
+    const duration = normalizeDuration(String(body.duration || 'daily'));
+
+    if (!goal) {
+      return NextResponse.json({ msg: 'Goal is required.' }, { status: 400 });
     }
 
-    const newQuest = new Quest({
+    if (goal.length > 100) {
+      return NextResponse.json({ msg: 'Goal must be 100 characters or less.' }, { status: 400 });
+    }
+
+    const quest = new Quest({
       userId: user.id,
       goal,
-      duration: duration.toLowerCase(),
+      duration,
       ratings: [0],
-      date: new Date()
+      completed: false,
+      completedDate: null,
+      date: new Date(),
     });
-    await newQuest.save();
 
-    return NextResponse.json({ msg: 'Quest created', quest: newQuest });
-  } catch (err) {
-    console.error('Create quest error:', err);
-    return NextResponse.json({ msg: 'Server error' }, { status: 500 });
+    await quest.save();
+
+    return NextResponse.json({
+      msg: 'Quest created.',
+      quest,
+    });
+  } catch (error) {
+    console.error('Create quest error:', error);
+    return NextResponse.json({ msg: 'Server error.' }, { status: 500 });
   }
 }

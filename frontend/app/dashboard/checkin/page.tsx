@@ -1,244 +1,376 @@
-"use client";
+﻿"use client";
 
-import { useState, useEffect } from "react";
-import { Star, Check } from "lucide-react";
-import confetti from "canvas-confetti";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import confetti from "canvas-confetti";
+import { useRouter } from "next/navigation";
+import { ArrowRight, BarChart2, Check, Loader2 } from "lucide-react";
 
-export default function CheckInPage() {
-  const [questions, setQuestions] = useState([]);
+interface ResponseEntry {
+  question: string;
+  rating: number;
+}
+
+interface CheckInResult {
+  totalScore: number;
+  maxScore: number;
+  percentage: number;
+}
+
+interface MoodOption {
+  value: number;
+  emoji: string;
+  label: string;
+  toneClass: string;
+  selectedToneClass: string;
+}
+
+const moodOptions: MoodOption[] = [
+  {
+    value: 1,
+    emoji: "😟",
+    label: "Low",
+    toneClass: "border-rose-200 bg-rose-50 text-rose-700",
+    selectedToneClass: "border-rose-300 bg-rose-100 ring-2 ring-rose-200",
+  },
+  {
+    value: 2,
+    emoji: "😐",
+    label: "Neutral",
+    toneClass: "border-slate-200 bg-slate-50 text-slate-700",
+    selectedToneClass: "border-slate-300 bg-slate-100 ring-2 ring-slate-200",
+  },
+  {
+    value: 3,
+    emoji: "🙂",
+    label: "Good",
+    toneClass: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    selectedToneClass: "border-emerald-300 bg-emerald-100 ring-2 ring-emerald-200",
+  },
+  {
+    value: 4,
+    emoji: "😄",
+    label: "Great",
+    toneClass: "border-sky-200 bg-sky-50 text-sky-700",
+    selectedToneClass: "border-sky-300 bg-sky-100 ring-2 ring-sky-200",
+  },
+  {
+    value: 5,
+    emoji: "🤩",
+    label: "Excellent",
+    toneClass: "border-violet-200 bg-violet-50 text-violet-700",
+    selectedToneClass: "border-violet-300 bg-violet-100 ring-2 ring-violet-200",
+  },
+];
+
+const fallbackQuestions = [
+  "How has your emotional energy been today?",
+  "How focused did you feel on key priorities?",
+  "How steady was your stress level today?",
+  "How connected did you feel to people around you?",
+  "How positive do you feel about tomorrow?",
+];
+
+export default function DailyPulsePage() {
+  const router = useRouter();
+  const [questions, setQuestions] = useState<string[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedRating, setSelectedRating] = useState(0);
-  const [responses, setResponses] = useState([]);
+  const [responses, setResponses] = useState<ResponseEntry[]>([]);
   const [isCompleted, setIsCompleted] = useState(false);
   const [isAlreadyCompleted, setIsAlreadyCompleted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<CheckInResult | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchQuestions();
+    void fetchQuestions();
   }, []);
 
+  const completionPercent = useMemo(() => {
+    if (!questions.length) return 0;
+    return Math.round(((currentQuestionIndex + 1) / questions.length) * 100);
+  }, [currentQuestionIndex, questions.length]);
+
+  const authHeaders = () => {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    return { Authorization: `Bearer ${token}` };
+  };
+
   const fetchQuestions = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-      // Mock data for fallback if API fails
-      const mockQuestions = [
-        "How are you feeling today?",
-        "Did you accomplish your goals?",
-        "How was your energy level?",
-      ];
+    const headers = authHeaders();
+    if (!headers) {
+      router.push("/");
+      return;
+    }
 
-      try {
-        const res = await axios.get("/api/checkin/questions", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setQuestions(res.data.questions || mockQuestions);
-      } catch (e) {
-        setQuestions(mockQuestions);
+    try {
+      const response = await axios.get("/api/checkin/questions", { headers });
+      const incomingQuestions = response.data?.questions;
+      setQuestions(Array.isArray(incomingQuestions) && incomingQuestions.length ? incomingQuestions : fallbackQuestions);
+      setError("");
+    } catch (requestError) {
+      if (axios.isAxiosError(requestError) && requestError.response?.status === 401) {
+        router.push("/");
+        return;
       }
 
-      setLoading(false);
-    } catch (err) {
-      if (err.response && err.response.status === 400) {
+      if (axios.isAxiosError(requestError) && requestError.response?.status === 400) {
         setIsAlreadyCompleted(true);
+      } else {
+        setQuestions(fallbackQuestions);
+        setError("Unable to sync questions. Using fallback flow.");
       }
+    } finally {
       setLoading(false);
     }
   };
 
-  const handleRating = (rating) => {
-    setSelectedRating(rating);
-  };
-
-  const handleSubmit = async () => {
-    if (selectedRating === 0) return;
-
-    const newResponses = [
-      ...responses,
-      { question: questions[currentQuestionIndex], rating: selectedRating },
-    ];
-    setResponses(newResponses);
-
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-      setSelectedRating(0);
-    } else {
-      await submitCheckIn(newResponses);
-    }
-  };
-
-  const submitCheckIn = async (finalResponses) => {
+  const submitCheckIn = async (entries: ResponseEntry[]) => {
     setSubmitting(true);
+    setError("");
+
+    const headers = authHeaders();
+    if (!headers) {
+      router.push("/");
+      return;
+    }
+
     try {
-      const token = localStorage.getItem("token");
-      const ratings = finalResponses.map((r) => r.rating);
+      const ratings = entries.map((entry) => entry.rating);
+      const response = await axios.post(
+        "/api/checkin/submit",
+        { ratings },
+        { headers },
+      );
 
-      // Mock result if API is not real
-      const totalScore = ratings.reduce((a, b) => a + b, 0);
-      const maxScore = questions.length * 5;
-      const percentage = Math.round((totalScore / maxScore) * 100);
+      const apiResult = response.data?.result as CheckInResult | undefined;
+      const computedTotal = ratings.reduce((sum, value) => sum + value, 0);
+      const computedMax = ratings.length * 5;
+      const computedPercentage = Math.round((computedTotal / computedMax) * 100);
 
-      // Try actual submit
-      try {
-        await axios.post(
-          "/api/checkin/submit",
-          { ratings },
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          },
-        );
-      } catch (e) {
-        console.log("API submit failed, using local calculation");
-      }
+      const finalResult: CheckInResult =
+        apiResult && Number.isFinite(apiResult.totalScore)
+          ? apiResult
+          : {
+              totalScore: computedTotal,
+              maxScore: computedMax,
+              percentage: computedPercentage,
+            };
 
-      setResult({ totalScore, maxScore, percentage });
+      setResult(finalResult);
       setIsCompleted(true);
 
-      if (percentage >= 70) {
+      if (finalResult.percentage >= 80) {
         confetti({
-          particleCount: 150,
-          spread: 100,
-          origin: { y: 0.6 },
+          particleCount: 90,
+          spread: 70,
+          origin: { y: 0.62 },
+          colors: ["#5B8DEF", "#A78BFA", "#34D399", "#F59E0B"],
         });
       }
-    } catch (err) {
-      alert("Failed to submit check-in");
+    } catch (requestError) {
+      if (axios.isAxiosError(requestError) && requestError.response?.status === 401) {
+        router.push("/");
+        return;
+      }
+
+      const message =
+        axios.isAxiosError(requestError) && requestError.response?.data?.msg
+          ? String(requestError.response.data.msg)
+          : "Failed to submit daily pulse.";
+
+      setError(message);
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading) return <div className="text-slate-500">Loading...</div>;
+  const handleSubmit = async () => {
+    if (!selectedRating) return;
+
+    const nextResponses = [
+      ...responses,
+      {
+        question: questions[currentQuestionIndex],
+        rating: selectedRating,
+      },
+    ];
+    setResponses(nextResponses);
+
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex((current) => current + 1);
+      setSelectedRating(0);
+      return;
+    }
+
+    await submitCheckIn(nextResponses);
+  };
+
+  const getMoodByScore = (percentage: number) => {
+    if (percentage >= 80) return moodOptions[4];
+    if (percentage >= 60) return moodOptions[3];
+    if (percentage >= 40) return moodOptions[2];
+    if (percentage >= 20) return moodOptions[1];
+    return moodOptions[0];
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+          <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+          <span>Loading daily pulse...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (isAlreadyCompleted) {
     return (
-      <div className="w-full max-w-[600px] mx-auto animate-fade-in">
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-          <div className="p-4 border-b border-slate-100">
-            <h2 className="text-xl font-semibold text-slate-800 m-0">
-              Daily Check-In
-            </h2>
+      <div className="mx-auto w-full max-w-3xl animate-fade-in">
+        <section className="card-calm p-8 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+            <Check className="h-8 w-8 text-emerald-600" />
           </div>
-          <div className="p-6">
-            <p className="text-slate-600 text-lg">
-              Daily check-in already completed today.
-            </p>
-          </div>
-        </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-800">Daily Pulse complete</h1>
+          <p className="mt-2 text-slate-500">You already checked in today. Come back tomorrow for the next pulse.</p>
+        </section>
       </div>
     );
   }
 
   if (isCompleted && result) {
-    let message = "";
-    if (result.percentage >= 80)
-      message = "Excellent day! You're doing amazing!";
-    else if (result.percentage >= 60)
-      message = "Good day! Keep up the good work!";
-    else if (result.percentage >= 40)
-      message = "Average day. Tomorrow can be better!";
-    else message = "Challenging day. Remember, every day is a new opportunity.";
+    const mood = getMoodByScore(result.percentage);
 
     return (
-      <div className="w-full max-w-[600px] mx-auto animate-fade-in">
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-          <div className="p-4 border-b border-slate-100">
-            <h2 className="text-xl font-semibold text-slate-800 m-0">
-              Daily Check-In
-            </h2>
-          </div>
-          <div className="p-6">
-            <div className="flex flex-col items-center justify-center gap-4 py-8 animate-fade-in">
-              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center">
-                <Check className="w-8 h-8 text-emerald-600" />
-              </div>
-              <span className="text-xl font-bold text-slate-800">
-                Thanks for checking in today!
-              </span>
+      <div className="mx-auto w-full max-w-3xl animate-fade-in space-y-5">
+        <section className="card-calm p-7 text-center">
+          <p className="text-5xl" aria-label="result mood">
+            {mood.emoji}
+          </p>
+          <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Pulse logged successfully</h1>
+          <p className="mt-1 text-slate-600">Your current state is trending toward {mood.label.toLowerCase()}.</p>
+
+          <div className="mt-6 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left sm:grid-cols-3">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-slate-500">Score</p>
+              <p className="text-lg font-semibold text-slate-800">
+                {result.totalScore}/{result.maxScore}
+              </p>
             </div>
-            <div className="flex flex-col gap-4 animate-fade-in mt-4 border-t border-slate-100 pt-4">
-              <div className="text-lg font-bold text-slate-700 text-center">
-                Overall Score: {result.totalScore}/{result.maxScore}
-              </div>
-              <div className="h-4 bg-slate-100 rounded-full overflow-hidden relative">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-slate-500">Completion</p>
+              <p className="text-lg font-semibold text-slate-800">{result.percentage}%</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider text-slate-500">Reward</p>
+              <p className="xp-pill">+{result.percentage} XP</p>
+            </div>
+          </div>
+
+          <div className="mt-4 progress-track">
+            <div className="progress-fill" style={{ width: `${result.percentage}%` }} />
+          </div>
+        </section>
+
+        <section className="card-calm p-5">
+          <div className="mb-3 flex items-center gap-2 text-left">
+            <BarChart2 className="h-4 w-4 text-blue-600" />
+            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-700">Response Breakdown</h2>
+          </div>
+          <div className="space-y-2">
+            {responses.map((entry, index) => {
+              const entryMood = moodOptions.find((option) => option.value === entry.rating) ?? moodOptions[2];
+              return (
                 <div
-                  className="h-full bg-blue-500 transition-[width] duration-1000 ease-out"
-                  style={{ width: `${result.percentage}%` }}
-                ></div>
-              </div>
-              <div className="text-base text-slate-500 text-center italic">
-                {message}
-              </div>
-              <div className="mt-4 flex flex-col gap-2 max-h-[200px] overflow-y-auto">
-                {responses.map((r, i) => (
-                  <div
-                    key={i}
-                    className="flex justify-between items-center p-3 bg-slate-50 rounded text-sm border-l-4 border-blue-500"
-                  >
-                    <span className="text-slate-700 text-left flex-1 mr-4">
-                      {r.question}
-                    </span>
-                    <span className="font-bold text-blue-600">
-                      {r.rating}/5
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+                  key={`${entry.question}-${index}`}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3"
+                >
+                  <p className="text-sm text-slate-700">{entry.question}</p>
+                  <span className="text-2xl" aria-label={entryMood.label}>
+                    {entryMood.emoji}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-        </div>
+        </section>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-[600px] mx-auto animate-fade-in">
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-        <div className="p-4 border-b border-slate-100">
-          <h2 className="text-xl font-semibold text-slate-800 m-0">
-            Daily Check-In
-          </h2>
-        </div>
-        <div className="p-6">
-          <div className="text-sm text-slate-400 uppercase tracking-wider mb-4 font-medium text-center">
+    <div className="mx-auto w-full max-w-3xl animate-fade-in space-y-4">
+      {error && (
+        <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">{error}</div>
+      )}
+
+      <header className="text-left">
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Daily Pulse</h1>
+        <p className="mt-1 text-sm text-slate-600">A quick emotional check to anchor today&apos;s direction.</p>
+      </header>
+
+      <section className="card-calm p-6">
+        <div className="mb-5 flex items-center justify-between gap-2 text-sm">
+          <p className="font-medium text-slate-700">
             Question {currentQuestionIndex + 1} of {questions.length}
-          </div>
-          <div className="text-xl text-slate-800 mb-8 font-medium leading-relaxed min-h-[60px] flex items-center justify-center">
-            {questions[currentQuestionIndex]}
-          </div>
-          <div className="flex justify-center gap-2 mb-8">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <button
-                key={star}
-                className="bg-transparent border-none cursor-pointer p-1 transition-transform hover:scale-110 focus:outline-none group"
-                onClick={() => handleRating(star)}
-              >
-                <Star
-                  className={`w-10 h-10 transition-colors duration-200 ${star <= selectedRating ? "text-yellow-400 fill-yellow-400" : "text-slate-200 group-hover:text-yellow-400"}`}
-                />
-              </button>
-            ))}
-          </div>
-          <div className="flex justify-between px-4 mb-6 text-xs text-slate-400 uppercase tracking-wide font-medium">
-            <span>Poor</span>
-            <span>Excellent</span>
-          </div>
-          <button
-            className="w-full py-3 px-6 bg-slate-900 text-white border-none rounded-lg text-base font-bold uppercase tracking-wider cursor-pointer transition-all duration-200 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={handleSubmit}
-            disabled={selectedRating === 0 || submitting}
-          >
-            {submitting
-              ? "Calculating..."
-              : currentQuestionIndex < questions.length - 1
-                ? "Next"
-                : "Submit"}
-          </button>
+          </p>
+          <span className="text-slate-500">{completionPercent}% of pulse flow</span>
         </div>
-      </div>
+
+        <div className="mb-6 progress-track">
+          <div className="progress-fill" style={{ width: `${completionPercent}%` }} />
+        </div>
+
+        <p className="mb-6 text-lg font-medium leading-relaxed text-slate-900">{questions[currentQuestionIndex]}</p>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          {moodOptions.map((mood) => {
+            const isSelected = selectedRating === mood.value;
+            return (
+              <button
+                key={mood.value}
+                type="button"
+                onClick={() => setSelectedRating(mood.value)}
+                className={[
+                  "rounded-xl border px-3 py-3 text-center transition-all duration-200",
+                  mood.toneClass,
+                  isSelected ? mood.selectedToneClass : "hover:border-slate-300",
+                ].join(" ")}
+              >
+                <span className="block text-3xl">{mood.emoji}</span>
+                <span className="mt-1 block text-xs font-semibold">{mood.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            void handleSubmit();
+          }}
+          disabled={!selectedRating || submitting}
+          className="btn-calm-primary mt-6 flex w-full items-center justify-center gap-2"
+        >
+          {submitting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Saving pulse...
+            </>
+          ) : currentQuestionIndex < questions.length - 1 ? (
+            <>
+              Next question
+              <ArrowRight className="h-4 w-4" />
+            </>
+          ) : (
+            "Complete daily pulse"
+          )}
+        </button>
+      </section>
     </div>
   );
 }

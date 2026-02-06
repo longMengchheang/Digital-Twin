@@ -1,36 +1,50 @@
-import dbConnect from '@/lib/db';
-import User from '@/lib/models/User';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+﻿import bcrypt from 'bcryptjs';
 import { NextResponse } from 'next/server';
+import dbConnect from '@/lib/db';
+import { signToken } from '@/lib/auth';
+import User from '@/lib/models/User';
 
-const JWT_SECRET = process.env.JWT_SECRET || '4a8f5b3e2c1d9e7f6a5b4c3d2e1f0a9';
+export const dynamic = 'force-dynamic';
 
-export async function POST(req) {
+interface LoginPayload {
+  email?: string;
+  password?: string;
+}
+
+export async function POST(req: Request) {
   try {
     await dbConnect();
-    const { email, password } = await req.json();
+
+    const body = (await req.json()) as LoginPayload;
+    const email = String(body.email || '').trim().toLowerCase();
+    const password = String(body.password || '').trim();
 
     if (!email || !password) {
-      return NextResponse.json({ msg: 'Email and password required' }, { status: 400 });
+      return NextResponse.json({ msg: 'Email and password are required.' }, { status: 400 });
     }
 
     const user = await User.findOne({ email });
     if (!user) {
-      return NextResponse.json({ msg: 'User not found' }, { status: 400 });
+      return NextResponse.json({ msg: 'Invalid credentials.' }, { status: 401 });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return NextResponse.json({ msg: 'Invalid credentials' }, { status: 400 });
+      return NextResponse.json({ msg: 'Invalid credentials.' }, { status: 401 });
     }
 
-    const payload = { user: { id: user.id } };
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
+    const token = signToken({ id: user.id, email: user.email });
 
-    return NextResponse.json({ token });
-  } catch (err) {
-    console.error('Login error:', err);
-    return NextResponse.json({ msg: 'Server error', error: err.message }, { status: 500 });
+    return NextResponse.json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+      },
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    return NextResponse.json({ msg: 'Server error.' }, { status: 500 });
   }
 }

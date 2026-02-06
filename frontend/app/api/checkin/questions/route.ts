@@ -1,38 +1,41 @@
+﻿import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import CheckIn from '@/lib/models/CheckIn';
 import { verifyToken } from '@/lib/auth';
-import { NextResponse } from 'next/server';
+import { getDayKey } from '@/lib/progression';
+import CheckIn from '@/lib/models/CheckIn';
 
-export async function GET(req) {
+export const dynamic = 'force-dynamic';
+
+const DAILY_QUESTIONS = [
+  'How has your emotional energy been today?',
+  'How focused did you feel on key priorities?',
+  'How steady was your stress level today?',
+  'How connected did you feel to people around you?',
+  'How positive do you feel about tomorrow?',
+];
+
+export async function GET(req: Request) {
   try {
     await dbConnect();
+
     const user = verifyToken(req);
     if (!user) {
-      return NextResponse.json({ msg: 'No token, authorization denied' }, { status: 401 });
+      return NextResponse.json({ msg: 'No token, authorization denied.' }, { status: 401 });
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const existingCheckIn = await CheckIn.findOne({
-      userId: user.id,
-      date: { $gte: today }
-    });
+    const dayKey = getDayKey(new Date());
+    const existingCheckIn = await CheckIn.findOne({ userId: user.id, dayKey });
 
     if (existingCheckIn) {
-      return NextResponse.json({ msg: 'Daily check-in already completed' }, { status: 400 });
+      return NextResponse.json({ msg: 'Daily check-in already completed.' }, { status: 400 });
     }
 
-    const questions = [
-      'How are you feeling today?',
-      'How productive did you feel today?',
-      'How energized are you right now?',
-      'How confident are you about your goals today?',
-      'How connected do you feel to others today?'
-    ];
-    return NextResponse.json({ questions });
-  } catch (err) {
-    console.error('Questions error:', err);
-    return NextResponse.json({ msg: 'Server error' }, { status: 500 });
+    return NextResponse.json({
+      questions: DAILY_QUESTIONS,
+      expectedRatings: DAILY_QUESTIONS.length,
+    });
+  } catch (error) {
+    console.error('Questions error:', error);
+    return NextResponse.json({ msg: 'Server error.' }, { status: 500 });
   }
 }

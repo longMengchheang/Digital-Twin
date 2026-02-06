@@ -1,21 +1,22 @@
-"use client";
+﻿"use client";
 
-import { useState } from "react";
 import Sidebar from "../../components/Sidebar";
 
-export default function DashboardLayout({ children }) {
-  const [collapsed, setCollapsed] = useState(false);
+interface DashboardLayoutProps {
+  children: React.ReactNode;
+}
 
+export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
-    <>
-      <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
-      <div
-        className={`flex-1 min-h-screen flex justify-center items-center relative transition-[margin-left,width] duration-200 ease-linear bg-slate-50 ${collapsed ? "ml-[var(--sidebar-width-icon)] w-[calc(100%-var(--sidebar-width-icon))]" : "ml-[var(--sidebar-width)] w-[calc(100%-var(--sidebar-width))]"}`}
-      >
-        <div className="w-full max-w-4xl min-h-full flex flex-col justify-start items-center text-center p-8 overflow-y-auto">
-          {children}
+    <div className="min-h-screen">
+      <Sidebar />
+      <main className="min-h-screen ml-[var(--sidebar-width)] w-[calc(100%-var(--sidebar-width))]">
+        <div className="dashboard-backdrop min-h-screen">
+          <div className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8">
+            {children}
+          </div>
         </div>
-      </div>
-    </>
+      </main>
+    </div>
   );
 }

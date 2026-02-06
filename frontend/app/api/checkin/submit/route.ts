@@ -1,43 +1,71 @@
+﻿import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import CheckIn from '@/lib/models/CheckIn';
 import { verifyToken } from '@/lib/auth';
-import { NextResponse } from 'next/server';
+import { getDayKey } from '@/lib/progression';
+import { adjustUserXP } from '@/lib/user-progress';
+import CheckIn from '@/lib/models/CheckIn';
 
-export async function POST(req) {
+export const dynamic = 'force-dynamic';
+
+interface SubmitPayload {
+  ratings?: number[];
+}
+
+function isValidRatings(ratings: number[]): boolean {
+  return Array.isArray(ratings) && ratings.length === 5 && ratings.every((value) => value >= 1 && value <= 5);
+}
+
+export async function POST(req: Request) {
   try {
     await dbConnect();
+
     const user = verifyToken(req);
     if (!user) {
-      return NextResponse.json({ msg: 'No token, authorization denied' }, { status: 401 });
+      return NextResponse.json({ msg: 'No token, authorization denied.' }, { status: 401 });
     }
 
-    const { ratings } = await req.json();
-    if (!Array.isArray(ratings) || ratings.length !== 5) {
-      return NextResponse.json({ msg: 'Must provide exactly 5 ratings' }, { status: 400 });
+    const body = (await req.json()) as SubmitPayload;
+    const ratings = Array.isArray(body.ratings) ? body.ratings.map((value) => Number(value)) : [];
+
+    if (!isValidRatings(ratings)) {
+      return NextResponse.json({ msg: 'Must provide exactly 5 ratings from 1 to 5.' }, { status: 400 });
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const existingCheckIn = await CheckIn.findOne({
-      userId: user.id,
-      date: { $gte: today }
-    });
+    const dayKey = getDayKey(new Date());
+    const existingCheckIn = await CheckIn.findOne({ userId: user.id, dayKey });
 
     if (existingCheckIn) {
-      return NextResponse.json({ msg: 'Daily check-in already completed' }, { status: 400 });
+      return NextResponse.json({ msg: 'Daily check-in already completed.' }, { status: 400 });
     }
 
-    const overallScore = ratings.reduce((a, b) => a + b, 0);
+    const overallScore = ratings.reduce((sum, value) => sum + value, 0);
+    const maxScore = ratings.length * 5;
+    const percentage = Math.round((overallScore / maxScore) * 100);
+
     const checkIn = new CheckIn({
       userId: user.id,
       ratings,
-      overallScore
+      overallScore,
+      percentage,
+      dayKey,
+      date: new Date(),
     });
+
     await checkIn.save();
 
-    return NextResponse.json({ msg: 'Check-in submitted', overallScore });
-  } catch (err) {
-    console.error('Submit checkin error:', err);
-    return NextResponse.json({ msg: 'Server error' }, { status: 500 });
+    const progression = await adjustUserXP(user.id, percentage);
+
+    return NextResponse.json({
+      msg: 'Check-in submitted.',
+      result: {
+        totalScore: overallScore,
+        maxScore,
+        percentage,
+      },
+      progression,
+    });
+  } catch (error) {
+    console.error('Submit check-in error:', error);
+    return NextResponse.json({ msg: 'Server error.' }, { status: 500 });
   }
 }

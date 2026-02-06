@@ -1,20 +1,35 @@
+﻿import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import CheckIn from '@/lib/models/CheckIn';
 import { verifyToken } from '@/lib/auth';
-import { NextResponse } from 'next/server';
+import CheckIn from '@/lib/models/CheckIn';
 
-export async function GET(req) {
+export const dynamic = 'force-dynamic';
+
+export async function GET(req: Request) {
   try {
     await dbConnect();
+
     const user = verifyToken(req);
     if (!user) {
-      return NextResponse.json({ msg: 'No token, authorization denied' }, { status: 401 });
+      return NextResponse.json({ msg: 'No token, authorization denied.' }, { status: 401 });
     }
 
-    const history = await CheckIn.find({ userId: user.id }).sort({ date: -1 }).limit(30);
-    return NextResponse.json(history);
-  } catch (err) {
-    console.error('History error:', err);
-    return NextResponse.json({ msg: 'Server error' }, { status: 500 });
+    const history = await CheckIn.find({ userId: user.id })
+      .sort({ date: -1 })
+      .limit(30)
+      .lean();
+
+    return NextResponse.json({
+      history: history.map((entry) => ({
+        id: String(entry._id),
+        date: entry.date,
+        ratings: entry.ratings,
+        overallScore: entry.overallScore,
+        percentage: entry.percentage,
+      })),
+    });
+  } catch (error) {
+    console.error('History error:', error);
+    return NextResponse.json({ msg: 'Server error.' }, { status: 500 });
   }
 }

@@ -1,72 +1,86 @@
-"use client";
-import { useState, useEffect } from "react";
+﻿"use client";
+
+import { useEffect, useState } from "react";
 import axios from "axios";
-import { History as HistoryIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Clock } from "lucide-react";
+
+interface HistoryItem {
+  id: string;
+  date: string;
+  overallScore: number;
+  percentage: number;
+  ratings: number[];
+}
 
 export default function HistoryPage() {
-  const [history, setHistory] = useState([]);
+  const router = useRouter();
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchHistory();
+    void fetchHistory();
   }, []);
 
   const fetchHistory = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.push("/");
+      return;
+    }
+
     try {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-      // Mock history if API fails/not implemented
-      try {
-        const res = await axios.get("/api/checkin/history", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setHistory(res.data);
-      } catch (e) {
-        // fallback mock
-        setHistory([
-          { date: new Date(), overallScore: "85% (Mock)" },
-          { date: new Date(Date.now() - 86400000), overallScore: "70% (Mock)" },
-        ]);
+      setLoading(true);
+      const response = await axios.get("/api/checkin/history", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const items = Array.isArray(response.data?.history) ? (response.data.history as HistoryItem[]) : [];
+      setHistory(items);
+      setError("");
+    } catch (requestError) {
+      if (axios.isAxiosError(requestError) && requestError.response?.status === 401) {
+        router.push("/");
+        return;
       }
-    } catch (err) {
-      console.error(err);
+
+      setError("Could not load pulse history.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="w-full max-w-[800px] mx-auto animate-fade-in">
-      <div className="flex flex-col gap-6">
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm flex flex-col h-full">
-          <h2 className="text-xl font-bold text-slate-800 m-0 p-4 border-b border-slate-100 flex items-center gap-2">
-            <HistoryIcon className="w-5 h-5 text-slate-500" />
-            Check-In History
-          </h2>
-          <div className="flex-1 overflow-y-auto p-4 scroll-smooth">
-            {loading ? (
-              <p className="text-slate-500">Loading...</p>
-            ) : history.length === 0 ? (
-              <p className="text-slate-500">No history yet.</p>
-            ) : (
-              history.map((item, index) => (
-                <div
-                  key={index}
-                  className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4 text-left transition-transform hover:shadow-sm"
-                >
-                  <div className="text-slate-800 mb-1">
-                    <strong>Date:</strong>{" "}
-                    {new Date(item.date).toLocaleDateString()}
-                  </div>
-                  <div className="text-slate-600">
-                    <strong>Score:</strong> {item.overallScore}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+    <div className="mx-auto w-full max-w-3xl animate-fade-in">
+      <section className="card-calm overflow-hidden text-left">
+        <header className="flex items-center gap-2 border-b border-slate-200 px-5 py-4">
+          <Clock className="h-4 w-4 text-blue-600" />
+          <h1 className="text-lg font-semibold text-slate-900">Pulse History</h1>
+        </header>
+
+        <div className="space-y-3 p-5">
+          {loading ? (
+            <p className="text-sm text-slate-500">Loading history...</p>
+          ) : error ? (
+            <p className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-700">{error}</p>
+          ) : !history.length ? (
+            <p className="text-sm text-slate-500">No history available yet.</p>
+          ) : (
+            history.map((item) => (
+              <article key={item.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm text-slate-700">
+                  <span className="font-medium">Date:</span> {new Date(item.date).toLocaleDateString()}
+                </p>
+                <p className="mt-1 text-sm text-slate-700">
+                  <span className="font-medium">Score:</span> {item.overallScore}/25 ({item.percentage}%)
+                </p>
+                <p className="mt-1 text-xs text-slate-500">Ratings: {item.ratings.join(", ")}</p>
+              </article>
+            ))
+          )}
         </div>
-      </div>
+      </section>
     </div>
   );
 }

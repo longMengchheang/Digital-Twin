@@ -1,35 +1,81 @@
-import dbConnect from '@/lib/db';
-import User from '@/lib/models/User';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+﻿import bcrypt from 'bcryptjs';
 import { NextResponse } from 'next/server';
+import dbConnect from '@/lib/db';
+import { signToken } from '@/lib/auth';
+import { getRequiredXP } from '@/lib/progression';
+import User from '@/lib/models/User';
 
-const JWT_SECRET = process.env.JWT_SECRET || '4a8f5b3e2c1d9e7f6a5b4c3d2e1f0a9';
+export const dynamic = 'force-dynamic';
 
-export async function POST(req) {
+interface RegisterPayload {
+  email?: string;
+  password?: string;
+}
+
+function buildNameFromEmail(email: string): string {
+  const prefix = email.split('@')[0] || 'Adventurer';
+  const normalized = prefix.replace(/[._-]+/g, ' ').trim();
+  if (!normalized) return 'Adventurer';
+
+  return normalized
+    .split(' ')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+    .slice(0, 40);
+}
+
+export async function POST(req: Request) {
   try {
     await dbConnect();
-    const { email, password } = await req.json();
+
+    const body = (await req.json()) as RegisterPayload;
+    const email = String(body.email || '').trim().toLowerCase();
+    const password = String(body.password || '').trim();
 
     if (!email || !password) {
-      return NextResponse.json({ msg: 'Email and password required' }, { status: 400 });
+      return NextResponse.json({ msg: 'Email and password are required.' }, { status: 400 });
     }
 
-    const user = await User.findOne({ email });
-    if (user) {
-      return NextResponse.json({ msg: 'User already exists' }, { status: 400 });
+    if (password.length < 6) {
+      return NextResponse.json({ msg: 'Password must be at least 6 characters.' }, { status: 400 });
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return NextResponse.json({ msg: 'User already exists.' }, { status: 409 });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ email, password: hashedPassword });
+    const name = buildNameFromEmail(email);
+
+    const newUser = new User({
+      email,
+      password: hashedPassword,
+      name,
+      level: 1,
+      currentXP: 0,
+      requiredXP: getRequiredXP(1),
+      badges: [],
+      joinDate: new Date(),
+    });
+
     await newUser.save();
 
-    const payload = { user: { id: newUser.id } };
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
+    const token = signToken({ id: newUser.id, email: newUser.email });
 
-    return NextResponse.json({ token });
-  } catch (err) {
-    console.error('Register error:', err);
-    return NextResponse.json({ msg: 'Server error', error: err.message }, { status: 500 });
+    return NextResponse.json(
+      {
+        token,
+        user: {
+          id: newUser.id,
+          email: newUser.email,
+          name: newUser.name,
+        },
+      },
+      { status: 201 },
+    );
+  } catch (error) {
+    console.error('Register error:', error);
+    return NextResponse.json({ msg: 'Server error.' }, { status: 500 });
   }
 }
