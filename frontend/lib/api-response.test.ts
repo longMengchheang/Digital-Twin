@@ -7,6 +7,7 @@ import {
   notFound,
   conflict,
   serverError,
+  tooManyRequests,
 } from './api-response';
 
 describe('API Response Helpers', () => {
@@ -82,5 +83,12 @@ describe('API Response Helpers', () => {
     expect(json).toEqual({ msg: 'Something broke' });
 
     consoleSpy.mockRestore();
+  });
+
+  test('tooManyRequests returns 429', async () => {
+    const res = tooManyRequests();
+    expect(res.status).toBe(429);
+    const json = await res.json();
+    expect(json).toEqual({ msg: 'Too many requests.' });
   });
 });
