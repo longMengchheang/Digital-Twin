@@ -4,6 +4,7 @@ import { useState } from "react";
 import axios from "axios";
 import { ArrowLeft, ArrowRight, Mail } from "lucide-react";
 import Link from "next/link";
+import { Activity } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -19,7 +20,7 @@ export default function ForgotPasswordPage() {
 
     try {
       const res = await axios.post("/api/auth/forgot-password", { email });
-      setMessage({ type: "success", text: res.data.msg || "Code sent. Redirecting to verification..." });
+      setMessage({ type: "success", text: res.data.msg || "Link dispatched. Redirecting..." });
       
       // Redirect to reset password page with email
       setTimeout(() => {
@@ -32,7 +33,7 @@ export default function ForgotPasswordPage() {
     } catch (error) {
       const msg = axios.isAxiosError(error) && error.response?.data?.msg
         ? String(error.response.data.msg)
-        : "Failed to process request. Please try again.";
+        : "Request failed. Retry.";
       setMessage({ type: "error", text: msg });
     } finally {
       setLoading(false);
@@ -40,15 +41,15 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#f7f8fc] px-4 py-12 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-8 rounded-2xl bg-white p-8 shadow-xl">
+    <div className="flex min-h-screen items-center justify-center bg-[#0F111A] px-4 py-12 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md space-y-8 rounded-2xl border border-[#2A2E3F] bg-[#1C1F2B] p-8 shadow-[0_0_50px_-10px_rgba(139,92,246,0.1)]">
         <div className="text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[#8B5CF6]/10 text-[#8B5CF6] shadow-[0_0_15px_rgba(139,92,246,0.1)]">
             <Mail className="h-6 w-6" />
           </div>
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Forgot Password?</h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Enter your email address and we'll send you a link to reset your password.
+          <h2 className="mt-6 text-2xl font-bold tracking-tight text-white">Account Recovery</h2>
+          <p className="mt-2 text-sm text-[#9CA3AF]">
+            Enter your biological identifier (email) to receive a reset link.
           </p>
         </div>
 
@@ -65,35 +66,39 @@ export default function ForgotPasswordPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="input-calm w-full"
-              placeholder="Email address"
+              className="input-discord w-full bg-[#151823] border-[#2A2E3F] focus:border-[#8B5CF6] transition-colors"
+              placeholder="user@system.com"
             />
           </div>
 
           {message && (
-            <div
-              className={`rounded-md p-4 text-sm ${
-                message.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
-              }`}
-            >
-              <p>{message.text}</p>
-            </div>
+             <div
+                className={[
+                  "rounded-lg border px-4 py-3 text-sm flex items-center gap-2",
+                  message.type === "success"
+                    ? "border-green-500/20 bg-green-500/10 text-green-400"
+                    : "border-red-500/20 bg-red-500/10 text-red-400",
+                ].join(" ")}
+              >
+                {message.type === "error" && <Activity className="h-4 w-4" />}
+                {message.text}
+              </div>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="btn-calm-primary group relative flex w-full justify-center py-3"
+            className="btn-discord-primary group relative flex w-full justify-center py-3"
           >
-            {loading ? "Sending..." : "Send Reset Link"}
-            {!loading && <ArrowRight className="ml-2 h-5 w-5" />}
+            {loading ? "Transmitting..." : "Send Reset Link"}
+            {!loading && <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />}
           </button>
         </form>
 
         <div className="text-center">
-          <Link href="/" className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-500">
+          <Link href="/" className="inline-flex items-center text-sm font-medium text-[#8B5CF6] hover:text-[#A78BFA] transition-colors">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Login
+            Return to Access Terminal
           </Link>
         </div>
       </div>

@@ -2,7 +2,7 @@
 
 import { useState, Suspense } from "react";
 import axios from "axios";
-import { ArrowRight, Lock, Key } from "lucide-react";
+import { ArrowRight, Key, Activity } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { validatePassword } from "@/lib/validation";
@@ -22,7 +22,7 @@ function ResetPasswordForm() {
     e.preventDefault();
     
     if (!otp || otp.length !== 6) {
-      setMessage({ type: "error", text: "Please enter a valid 6-digit code." });
+      setMessage({ type: "error", text: "Invalid code format." });
       return;
     }
 
@@ -47,7 +47,7 @@ function ResetPasswordForm() {
         newPassword: password,
       });
 
-      setMessage({ type: "success", text: res.data.msg || "Password reset successfully. Redirecting..." });
+      setMessage({ type: "success", text: res.data.msg || "Credentials updated. Redirecting..." });
       
       setTimeout(() => {
         router.push("/");
@@ -56,7 +56,7 @@ function ResetPasswordForm() {
     } catch (error) {
       const msg = axios.isAxiosError(error) && error.response?.data?.msg
         ? String(error.response.data.msg)
-        : "Failed to reset password. Code may be invalid or expired.";
+        : "Update failed. Code may be invalid/expired.";
       setMessage({ type: "error", text: msg });
     } finally {
       setLoading(false);
@@ -64,22 +64,22 @@ function ResetPasswordForm() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#f7f8fc] px-4 py-12 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-8 rounded-2xl bg-white p-8 shadow-xl">
+    <div className="flex min-h-screen items-center justify-center bg-[#0F111A] px-4 py-12 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md space-y-8 rounded-2xl border border-[#2A2E3F] bg-[#1C1F2B] p-8 shadow-[0_0_50px_-10px_rgba(139,92,246,0.1)]">
         <div className="text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-[#8B5CF6]/10 text-[#8B5CF6] shadow-[0_0_15px_rgba(139,92,246,0.1)]">
             <Key className="h-6 w-6" />
           </div>
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">Set New Password</h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Enter the 6-digit code sent to <strong>{emailParam}</strong> and your new password.
+          <h2 className="mt-6 text-2xl font-bold tracking-tight text-white">Reset Credentials</h2>
+          <p className="mt-2 text-sm text-[#9CA3AF]">
+            Enter the 6-digit code sent to <strong className="text-white">{emailParam}</strong> and your new password.
           </p>
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <label htmlFor="otp" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="otp" className="block text-xs font-bold uppercase tracking-wide text-[#6B7280] mb-1">
                 Verification Code
               </label>
               <input
@@ -91,13 +91,13 @@ function ResetPasswordForm() {
                 required
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                className="input-calm w-full text-center text-lg tracking-widest"
-                placeholder="123456"
+                className="input-discord w-full bg-[#151823] border-[#2A2E3F] focus:border-[#8B5CF6] text-center text-lg tracking-[0.5em] transition-colors"
+                placeholder="000000"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="password" className="block text-xs font-bold uppercase tracking-wide text-[#6B7280] mb-1">
                 New Password
               </label>
               <input
@@ -108,13 +108,13 @@ function ResetPasswordForm() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="input-calm w-full"
+                className="input-discord w-full bg-[#151823] border-[#2A2E3F] focus:border-[#8B5CF6] transition-colors"
                 placeholder="New password"
               />
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="confirmPassword" className="block text-xs font-bold uppercase tracking-wide text-[#6B7280] mb-1">
                 Confirm Password
               </label>
               <input
@@ -125,7 +125,7 @@ function ResetPasswordForm() {
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="input-calm w-full"
+                className="input-discord w-full bg-[#151823] border-[#2A2E3F] focus:border-[#8B5CF6] transition-colors"
                 placeholder="Confirm new password"
               />
             </div>
@@ -133,25 +133,29 @@ function ResetPasswordForm() {
 
           {message && (
             <div
-              className={`rounded-md p-4 text-sm ${
-                message.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
-              }`}
-            >
-              <p>{message.text}</p>
-            </div>
+                className={[
+                  "rounded-lg border px-4 py-3 text-sm flex items-center gap-2",
+                  message.type === "success"
+                    ? "border-green-500/20 bg-green-500/10 text-green-400"
+                    : "border-red-500/20 bg-red-500/10 text-red-400",
+                ].join(" ")}
+              >
+                {message.type === "error" && <Activity className="h-4 w-4" />}
+                {message.text}
+              </div>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="btn-calm-primary group relative flex w-full justify-center py-3"
+            className="btn-discord-primary group relative flex w-full justify-center py-3"
           >
-            {loading ? "Resetting..." : "Reset Password"}
-            {!loading && <ArrowRight className="ml-2 h-5 w-5" />}
+            {loading ? "Updating..." : "Update Credentials"}
+            {!loading && <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />}
           </button>
         </form>
          <div className="text-center">
-            <Link href="/auth/forgot-password" className="text-sm font-medium text-blue-600 hover:text-blue-500">
+            <Link href="/auth/forgot-password" className="text-sm font-medium text-[#8B5CF6] hover:text-[#A78BFA] transition-colors">
               Resend Code
             </Link>
           </div>
@@ -162,7 +166,7 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}>
+    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-[#0F111A] text-[#8B5CF6]">Loading System...</div>}>
       <ResetPasswordForm />
     </Suspense>
   );

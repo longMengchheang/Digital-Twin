@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
-import { Activity, ArrowRight, BarChart2, MessageCircle, Target, User } from "lucide-react";
+import { Activity, ArrowRight, BarChart2, MessageCircle, Target, User, Zap } from "lucide-react";
 import { validatePassword } from "@/lib/validation";
 
 type FlashType = "success" | "error";
@@ -71,7 +71,7 @@ export default function AuthPage() {
   }, []);
 
   const pageTitle = useMemo(() => {
-    return isLogin ? "Sign in to your journey" : "Create your digital twin";
+    return isLogin ? "Access Terminal" : "Initialize Unit";
   }, [isLogin]);
 
   const setAuthMode = (nextMode: AuthMode) => {
@@ -89,7 +89,7 @@ export default function AuthPage() {
     event.preventDefault();
 
     if (!email.trim() || !password.trim()) {
-      setFlash({ type: "error", text: "Email and password are required." });
+      setFlash({ type: "error", text: "Credentials required." });
       return;
     }
 
@@ -118,7 +118,7 @@ export default function AuthPage() {
 
       const token = String(response.data?.token || "").trim();
       if (!token) {
-        setFlash({ type: "error", text: "Authentication failed. Please try again." });
+        setFlash({ type: "error", text: "Authentication failed. Retry." });
         return;
       }
 
@@ -129,7 +129,7 @@ export default function AuthPage() {
         return;
       }
 
-      setFlash({ type: "success", text: "Account created. Loading your dashboard..." });
+      setFlash({ type: "success", text: "Unit Initialized. Loading system..." });
       redirectTimerRef.current = setTimeout(() => {
         router.replace("/dashboard/checkin");
       }, 700);
@@ -138,8 +138,8 @@ export default function AuthPage() {
         axios.isAxiosError(error) && error.response?.data?.msg
           ? String(error.response.data.msg)
           : isLogin
-            ? "Sign in failed. Check your credentials."
-            : "Registration failed. Try again.";
+            ? "Access denied. Check credentials."
+            : "Initialization failed. Retry.";
       setFlash({ type: "error", text: message });
     } finally {
       setLoading(false);
@@ -147,27 +147,34 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen px-4 py-8 md:px-8 md:py-10">
-      <div className="mx-auto grid w-full max-w-5xl overflow-hidden rounded-[1.6rem] border border-slate-200 bg-white shadow-[0_28px_60px_-42px_rgba(15,23,42,0.55)] md:grid-cols-[1.1fr_1fr]">
-        <aside className="relative border-b border-slate-200 bg-gradient-to-br from-[#e9eeff] via-[#f0ecff] to-[#ffffff] p-7 md:border-b-0 md:border-r md:border-slate-200 md:p-10">
-          <div className="mb-8 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-violet-500 text-white">
-              <User className="h-5 w-5" />
+    <div className="min-h-screen flex items-center justify-center px-4 py-8 md:px-8 md:py-10 bg-[#0F111A]">
+      <div className="mx-auto grid w-full max-w-5xl overflow-hidden rounded-[1.2rem] border border-[#2A2E3F] bg-[#1C1F2B] shadow-[0_0_50px_-10px_rgba(139,92,246,0.15)] md:grid-cols-[1.1fr_1fr]">
+        
+        {/* Left Panel: Branding / System Intro */}
+        <aside className="relative flex flex-col justify-between border-b border-[#2A2E3F] bg-gradient-to-br from-[#14182E] to-[#0F111A] p-8 md:border-b-0 md:border-r md:p-12">
+          {/* Decorative Elements */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,0.1),transparent_50%)]" />
+          
+          <div className="relative z-10">
+            <div className="mb-10 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#8B5CF6] text-white shadow-[0_0_15px_rgba(139,92,246,0.4)]">
+                <Zap className="h-5 w-5 fill-current" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-white tracking-wide">Digital Mind</p>
+                <p className="text-[10px] uppercase tracking-wider text-[#9CA3AF]">System Version 2.0</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-800">Digital Twin</p>
-              <p className="text-xs text-slate-500">Calm RPG wellness dashboard</p>
-            </div>
+
+            <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl leading-tight">
+              Initialize your <span className="text-[#8B5CF6]">digital twin</span>.
+            </h1>
+            <p className="mt-4 max-w-md text-sm leading-relaxed text-[#9CA3AF]">
+              Connect to your personal system. Track quests, monitor stability, and evolve your digital identity.
+            </p>
           </div>
 
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">
-            Build consistency with a character-first routine.
-          </h1>
-          <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-600">
-            Keep your momentum through focused daily rituals and long-term quests with a clean, calm interface.
-          </p>
-
-          <div className="mt-7 space-y-3">
+          <div className="relative z-10 mt-12 space-y-3">
             {[
               { label: "Daily Pulse", icon: <Activity className="h-4 w-4" /> },
               { label: "Quest Log", icon: <Target className="h-4 w-4" /> },
@@ -176,22 +183,23 @@ export default function AuthPage() {
             ].map((item) => (
               <div
                 key={item.label}
-                className="flex items-center gap-2 rounded-lg border border-white/70 bg-white/60 px-3 py-2 text-sm text-slate-700"
+                className="group flex items-center gap-3 rounded-lg border border-[#2A2E3F] bg-[#151823]/50 px-4 py-3 text-sm text-[#E5E7EB] transition-all hover:bg-[#1C1F2B] hover:border-[#8B5CF6]/50"
               >
-                <span className="text-blue-600">{item.icon}</span>
-                <span className="font-medium">{item.label}</span>
+                <span className="text-[#8B5CF6] transition-transform group-hover:scale-110">{item.icon}</span>
+                <span className="font-medium tracking-wide">{item.label}</span>
               </div>
             ))}
           </div>
         </aside>
 
-        <section className="p-7 md:p-10">
-          <div className="mb-6 flex rounded-xl border border-slate-200 bg-slate-50 p-1 text-sm">
+        {/* Right Panel: Auth Form */}
+        <section className="relative flex flex-col justify-center p-8 md:p-12 bg-[#1C1F2B]">
+          <div className="mb-8 flex rounded-lg border border-[#2A2E3F] bg-[#151823] p-1 text-xs font-bold uppercase tracking-wide">
             <button
               type="button"
               className={[
-                "w-1/2 rounded-lg px-3 py-2 font-medium transition-colors",
-                isLogin ? "bg-white text-slate-900 shadow-sm" : "text-slate-500",
+                "w-1/2 rounded px-3 py-2 transition-all duration-200",
+                isLogin ? "bg-[#2A2E3F] text-white shadow-sm" : "text-[#6B7280] hover:text-[#9CA3AF]",
               ].join(" ")}
               onClick={() => setAuthMode("signin")}
             >
@@ -200,8 +208,8 @@ export default function AuthPage() {
             <button
               type="button"
               className={[
-                "w-1/2 rounded-lg px-3 py-2 font-medium transition-colors",
-                !isLogin ? "bg-white text-slate-900 shadow-sm" : "text-slate-500",
+                "w-1/2 rounded px-3 py-2 transition-all duration-200",
+                !isLogin ? "bg-[#2A2E3F] text-white shadow-sm" : "text-[#6B7280] hover:text-[#9CA3AF]",
               ].join(" ")}
               onClick={() => setAuthMode("signup")}
             >
@@ -209,30 +217,30 @@ export default function AuthPage() {
             </button>
           </div>
 
-          <h2 className="text-2xl font-semibold tracking-tight text-slate-900">{pageTitle}</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            {isLogin ? "Continue where you left off." : "Start your character and enter the dashboard."}
+          <h2 className="text-2xl font-bold tracking-tight text-white mb-2">{pageTitle}</h2>
+          <p className="text-sm text-[#9CA3AF] mb-8">
+            {isLogin ? "Enter your credentials to access the system." : "Create a new biological profile."}
           </p>
 
-          <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+          <form className="space-y-5" onSubmit={handleSubmit}>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700" htmlFor="email">
-                Email
+              <label className="text-xs font-bold uppercase tracking-wide text-[#6B7280]" htmlFor="email">
+                Email Address
               </label>
               <input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@example.com"
+                placeholder="user@system.com"
                 autoComplete="email"
-                className="input-calm"
+                className="input-discord w-full bg-[#151823] border-[#2A2E3F] focus:border-[#8B5CF6] transition-colors"
                 required
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700" htmlFor="password">
+              <label className="text-xs font-bold uppercase tracking-wide text-[#6B7280]" htmlFor="password">
                 Password
               </label>
               <input
@@ -240,51 +248,44 @@ export default function AuthPage() {
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="At least 8 chars, uppercase, lowercase, number, symbol"
+                placeholder="••••••••"
                 autoComplete={isLogin ? "current-password" : "new-password"}
-                className="input-calm"
+                className="input-discord w-full bg-[#151823] border-[#2A2E3F] focus:border-[#8B5CF6] transition-colors"
                 required
               />
             </div>
             
             {isLogin && (
               <div className="flex justify-end">
-                <a href="/auth/forgot-password" className="text-xs font-medium text-blue-600 hover:text-blue-500">
-                  Forgot your password?
+                <a href="/auth/forgot-password" className="text-xs font-medium text-[#8B5CF6] hover:text-[#A78BFA] transition-colors">
+                  Forgot password?
                 </a>
               </div>
             )}
 
 
             {flash && (
-              <p
+              <div
                 className={[
-                  "rounded-lg border px-3 py-2 text-sm",
+                  "rounded-lg border px-4 py-3 text-sm flex items-center gap-2",
                   flash.type === "success"
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                    : "border-red-200 bg-red-50 text-red-700",
+                    ? "border-green-500/20 bg-green-500/10 text-green-400"
+                    : "border-red-500/20 bg-red-500/10 text-red-400",
                 ].join(" ")}
               >
+                {flash.type === "error" && <Activity className="h-4 w-4" />}
                 {flash.text}
-              </p>
+              </div>
             )}
 
-            <button className="btn-calm-primary flex w-full items-center justify-center gap-2" disabled={loading} type="submit">
-              {loading ? "Processing..." : isLogin ? "Enter Dashboard" : "Create Character"}
-              {!loading && <ArrowRight className="h-4 w-4" />}
+            <button className="btn-discord-primary w-full group relative overflow-hidden" disabled={loading} type="submit">
+               <span className="relative z-10 flex items-center justify-center gap-2">
+                 {loading ? "Processing..." : isLogin ? "Access System" : "Initialize"}
+                 {!loading && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />}
+               </span>
             </button>
           </form>
 
-          <p className="mt-4 text-sm text-slate-500">
-            {isLogin ? "Need an account?" : "Already have one?"}{" "}
-            <button
-              type="button"
-              className="font-medium text-blue-700 hover:text-blue-800"
-              onClick={() => setAuthMode(isLogin ? "signup" : "signin")}
-            >
-              {isLogin ? "Create one" : "Sign in"}
-            </button>
-          </p>
         </section>
       </div>
     </div>
