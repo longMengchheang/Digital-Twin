@@ -1,5 +1,5 @@
 import { expect, test, describe } from "bun:test";
-import { normalizeSignalType, CHAT_SIGNAL_TYPES, sanitizeExtractedSignals, parseSignalResponseText } from "./chatSignals";
+import { normalizeSignalType, CHAT_SIGNAL_TYPES, sanitizeExtractedSignals, parseSignalResponseText } from "./chat-signals";
 
 describe("normalizeSignalType", () => {
   describe("Exact Matches", () => {

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
-import { normalizeSignalType } from '@/lib/chatSignals';
+import { normalizeSignalType } from '@/lib/chat-signals';
 import BehaviorConnection from '@/lib/models/BehaviorConnection';
 import BehaviorNode from '@/lib/models/BehaviorNode';
 import ChatSignal from '@/lib/models/ChatSignal';
