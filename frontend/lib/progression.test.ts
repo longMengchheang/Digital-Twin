@@ -1,5 +1,5 @@
 import { expect, test, describe } from "bun:test";
-import { applyXPDelta } from "./progression";
+import { applyXPDelta, getDayKey } from "./progression";
 
 describe("applyXPDelta", () => {
   test("should gain XP without leveling up", () => {
@@ -105,5 +105,31 @@ describe("applyXPDelta", () => {
       currentXP: 20,
       requiredXP: 100,
     });
+  });
+});
+
+describe("getDayKey", () => {
+  test("should format standard date correctly", () => {
+    // October 15, 2023
+    const date = new Date(2023, 9, 15);
+    expect(getDayKey(date)).toBe("2023-10-15");
+  });
+
+  test("should pad single-digit months and days", () => {
+    // January 5, 2023
+    const date = new Date(2023, 0, 5);
+    expect(getDayKey(date)).toBe("2023-01-05");
+  });
+
+  test("should handle leap years (Feb 29)", () => {
+    // February 29, 2024
+    const date = new Date(2024, 1, 29);
+    expect(getDayKey(date)).toBe("2024-02-29");
+  });
+
+  test("should handle end of year", () => {
+    // December 31, 2023
+    const date = new Date(2023, 11, 31);
+    expect(getDayKey(date)).toBe("2023-12-31");
   });
 });
