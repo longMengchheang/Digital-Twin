@@ -10,6 +10,16 @@ export function errorResponse(msg: string, status: number = 400) {
 }
 
 /**
+ * Returns a JSON success response with a standardized format.
+ * @param msg Success message
+ * @param data Optional data payload
+ * @param status HTTP status code (default: 200)
+ */
+export function successResponse(msg: string, data: any = null, status: number = 200) {
+  return NextResponse.json({ msg, data }, { status });
+}
+
+/**
  * Returns a 400 Bad Request response.
  * @param msg Error message
  */

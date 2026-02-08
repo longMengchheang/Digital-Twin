@@ -328,7 +328,7 @@ async function persistStructuredSignals(
     await ChatSignal.bulkWrite(
       signals.map((signal) => ({
         updateOne: {
-          filter: { messageId: messageObjectId, signalType: signal.signalType },
+          filter: { messageId, signalType: signal.signalType },
           update: {
             $set: {
               userId,
@@ -337,7 +337,7 @@ async function persistStructuredSignals(
               updatedAt: timestamp,
             },
             $setOnInsert: {
-              messageId: messageObjectId,
+              messageId,
               signalType: signal.signalType,
               createdAt: timestamp,
             },

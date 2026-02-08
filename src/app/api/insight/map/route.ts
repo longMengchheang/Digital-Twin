@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
 import { normalizeSignalType } from '@/lib/chat-signals';
-import BehaviorConnection from '@/lib/models/BehaviorConnection';
-import BehaviorNode from '@/lib/models/BehaviorNode';
+// import BehaviorConnection from '@/lib/models/BehaviorConnection';
+// import BehaviorNode from '@/lib/models/BehaviorNode';
 import ChatSignal from '@/lib/models/ChatSignal';
 import CheckIn from '@/lib/models/CheckIn';
-import FeatureSignal from '@/lib/models/FeatureSignal';
+// import FeatureSignal from '@/lib/models/FeatureSignal';
 import Quest from '@/lib/models/Quest';
 import User from '@/lib/models/User';
 
@@ -223,7 +223,7 @@ export async function GET(req: Request) {
     const startPrev7d = shiftDays(today, -13);
     const start30d = shiftDays(today, -29);
 
-    const [user, checkInsRaw, questsRaw, chatRaw, featureRaw, prevNodes, prevEdges] = await Promise.all([
+    const [user, checkInsRaw, questsRaw, chatRaw] = await Promise.all([
       User.findById(authUser.id).select('level').lean(),
       CheckIn.find({ userId: authUser.id, date: { $gte: start30d } }).sort({ date: -1 }).lean(),
       Quest.find({ userId: authUser.id }).sort({ date: -1 }).limit(120).lean(),
@@ -232,18 +232,23 @@ export async function GET(req: Request) {
         .sort({ createdAt: -1 })
         .limit(1600)
         .lean(),
-      FeatureSignal.find({ userId: authUser.id, createdAt: { $gte: start30d } })
-        .select('source signalType intensity confidence createdAt')
-        .sort({ createdAt: -1 })
-        .limit(1600)
-        .lean(),
-      BehaviorNode.find({ userId: authUser.id })
-        .select('nodeKey label strength occurrences')
-        .lean(),
-      BehaviorConnection.find({ userId: authUser.id })
-        .select('fromNodeKey toNodeKey weight')
-        .lean(),
+      // FeatureSignal.find({ userId: authUser.id, createdAt: { $gte: start30d } })
+      //   .select('source signalType intensity confidence createdAt')
+      //   .sort({ createdAt: -1 })
+      //   .limit(1600)
+      //   .lean(),
+      // BehaviorNode.find({ userId: authUser.id })
+      //   .select('nodeKey label strength occurrences')
+      //   .lean(),
+      // BehaviorConnection.find({ userId: authUser.id })
+      //   .select('fromNodeKey toNodeKey weight')
+      //   .lean(),
     ]);
+    
+    // Mock missing data
+    const featureRaw: any[] = [];
+    const prevNodes: any[] = [];
+    const prevEdges: any[] = [];
 
     if (!user) {
       return NextResponse.json({ msg: 'User not found.' }, { status: 404 });
@@ -584,7 +589,7 @@ export async function GET(req: Request) {
           upsert: true,
         },
       }));
-      await BehaviorNode.bulkWrite(nodeOps);
+      // await BehaviorNode.bulkWrite(nodeOps);
     }
 
     if (filteredEdges.length) {
@@ -603,11 +608,11 @@ export async function GET(req: Request) {
           upsert: true,
         },
       }));
-      await BehaviorConnection.bulkWrite(edgeOps);
+      // await BehaviorConnection.bulkWrite(edgeOps);
     }
 
-    await BehaviorNode.deleteMany({ userId: authUser.id, lastUpdated: { $lt: ts } });
-    await BehaviorConnection.deleteMany({ userId: authUser.id, lastUpdated: { $lt: ts } });
+    // await BehaviorNode.deleteMany({ userId: authUser.id, lastUpdated: { $lt: ts } });
+    // await BehaviorConnection.deleteMany({ userId: authUser.id, lastUpdated: { $lt: ts } });
 
     const suggestions = nodes.map((n) => n.suggestion).filter((v, i, arr) => v && arr.indexOf(v) === i).slice(0, 4);
     const stress = statsMap.get('stress');

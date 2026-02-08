@@ -44,7 +44,7 @@ export class RateLimiter {
   }
 
   private cleanup(now: number) {
-    for (const [key, info] of this.requests.entries()) {
+    for (const [key, info] of Array.from(this.requests.entries())) {
       if (now > info.resetTime) {
         this.requests.delete(key);
       }

@@ -246,6 +246,15 @@ export default function AuthPage() {
                 required
               />
             </div>
+            
+            {isLogin && (
+              <div className="flex justify-end">
+                <a href="/auth/forgot-password" className="text-xs font-medium text-blue-600 hover:text-blue-500">
+                  Forgot your password?
+                </a>
+              </div>
+            )}
+
 
             {flash && (
               <p

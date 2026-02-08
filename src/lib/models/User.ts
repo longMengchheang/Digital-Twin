@@ -14,6 +14,8 @@ export interface IUser extends Document {
   currentXP: number;
   requiredXP: number;
   badges: string[];
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
 }
 
 const userSchema = new mongoose.Schema(
@@ -78,6 +80,14 @@ const userSchema = new mongoose.Schema(
     badges: {
       type: [String],
       default: [],
+    },
+    resetPasswordToken: {
+      type: String,
+      default: null,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
     },
   },
   {
