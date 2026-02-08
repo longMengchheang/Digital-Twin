@@ -12,10 +12,12 @@ import {
   Loader2,
   Mail,
   MapPin,
+  Shield,
   Target,
   Trophy,
   User,
   X,
+  Zap,
 } from "lucide-react";
 
 interface MoodState {
@@ -169,9 +171,9 @@ export default function CharacterPage() {
   if (loading) {
     return (
       <div className="flex h-60 items-center justify-center">
-        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading character...
+        <div className="flex items-center gap-2 rounded-xl border border-[#2A2E3F] bg-[#151823] px-4 py-2 text-sm text-[#9CA3AF]">
+          <Loader2 className="h-4 w-4 animate-spin text-[#8B5CF6]" />
+          Initializing Identity Core...
         </div>
       </div>
     );
@@ -179,130 +181,105 @@ export default function CharacterPage() {
 
   if (!profile) {
     return (
-      <div className="mx-auto w-full max-w-3xl rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-        {error || "Profile is unavailable."}
+      <div className="mx-auto w-full max-w-3xl rounded-xl border border-[#F87171]/20 bg-[#F87171]/10 px-4 py-3 text-sm text-[#F87171]">
+        {error || "Identity data unavailable."}
       </div>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl animate-fade-in space-y-6">
+    <div className="mx-auto w-full max-w-5xl animate-fade-in space-y-8 pb-10 text-[#E5E7EB]">
       {error && (
-        <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">{error}</div>
+        <div className="rounded-xl border border-[#FBBF24]/20 bg-[#FBBF24]/10 px-4 py-3 text-sm text-[#FBBF24]">{error}</div>
       )}
 
-      <section className="card-calm overflow-hidden">
-        <div className="relative bg-gradient-to-br from-[#e9eeff] via-[#efeafd] to-white px-6 py-7 text-left md:px-8">
-          <button
+      {/* Identity Core (Avatar + Level) */}
+      <section className="relative flex flex-col items-center justify-center rounded-xl bg-[#151823] border border-[#2A2E3F] p-8 shadow-lg">
+         <div className="absolute top-4 right-4">
+            <button
             type="button"
             onClick={() => setIsEditing(true)}
-            className="absolute right-4 top-4 rounded-lg border border-slate-300 bg-white/90 p-2 text-slate-600 transition-colors hover:border-blue-200 hover:text-blue-700"
-          >
+            className="rounded p-2 text-[#6B7280] hover:bg-[#2A2E3F] hover:text-[#E5E7EB] transition-colors"
+            title="Edit Identity"
+            >
             <Edit2 className="h-4 w-4" />
-          </button>
+            </button>
+         </div>
 
-          <div className="grid gap-5 md:grid-cols-[220px_1fr] md:items-center">
-            <div className="text-center md:text-left">
-              <div className="mx-auto mb-3 flex h-28 w-28 items-center justify-center rounded-full border-[6px] border-white bg-gradient-to-br from-blue-500 to-violet-500 text-3xl font-bold text-white shadow-[0_20px_30px_-24px_rgba(91,141,239,0.95)] md:mx-0">
-                {initials}
-              </div>
-              <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Character Class</p>
-              <p className="mt-1 text-sm font-semibold text-slate-800">{profile.avatarStage}</p>
+         {/* Avatar Ring */}
+         <div className="relative mb-6">
+            <div className="flex h-32 w-32 items-center justify-center rounded-full bg-[#1C1F2B] border-4 border-[#151823] shadow-[0_0_30px_rgba(139,92,246,0.2)]">
+                <span className="text-4xl font-bold text-[#E5E7EB]">{initials}</span>
             </div>
-
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Character</h1>
-              <p className="mt-1 text-sm text-slate-600">Manage identity, progression, and achievements in one screen.</p>
-
-              <div className="mt-4 rounded-xl border border-slate-200 bg-white/80 p-4">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-slate-700">Level {profile.level}</span>
-                  <span className="xp-pill">
-                    {profile.currentXP} / {profile.requiredXP} XP
-                  </span>
-                </div>
-                <div className="progress-track">
-                  <div className="progress-fill" style={{ width: `${xpPercent}%` }} />
-                </div>
-                <p className="mt-1 text-xs text-slate-600">{profile.requiredXP - profile.currentXP} XP until level {profile.level + 1}</p>
-              </div>
+            {/* Level Badge integrated */}
+            <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center justify-center gap-1 rounded-full border border-[#2A2E3F] bg-[#0B0D14] px-4 py-1 text-[10px] font-bold uppercase tracking-wider text-[#8B5CF6] shadow-sm whitespace-nowrap">
+                <span>Level</span>
+                <span>{profile.level}</span>
             </div>
-          </div>
-        </div>
+         </div>
+
+         <h1 className="text-2xl font-bold text-white tracking-tight">{profile.name}</h1>
+         <p className="text-sm font-medium text-[#9CA3AF] mt-1">{profile.avatarStage}</p>
+
+         {/* System Energy Meter (Level Bar) */}
+         <div className="mt-8 w-full max-w-md rounded-xl bg-[#0B0D14] border border-[#2A2E3F] p-4">
+             <div className="mb-2 flex justify-between text-[10px] font-bold uppercase tracking-wider text-[#6B7280]">
+                <span>System Energy</span>
+                <span>{profile.currentXP} / {profile.requiredXP} XP</span>
+             </div>
+             <div className="h-2 w-full overflow-hidden rounded-full bg-[#151823]">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#8B5CF6] to-[#A78BFA] shadow-[0_0_10px_rgba(139,92,246,0.4)] transition-all duration-700 ease-out"
+                  style={{ width: `${xpPercent}%` }}
+                />
+             </div>
+         </div>
       </section>
 
+      {/* Stats Grid */}
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <article className="card-calm p-4 text-left">
-          <div className="inline-flex rounded-lg bg-orange-50 p-2 text-orange-600">
-            <Flame className="h-4 w-4" />
+        <article className="card-discord p-5 bg-[#1C1F2B] hover:bg-[#202330] transition-colors">
+          <div className="mb-3 inline-flex rounded bg-[#FBBF24]/10 p-2 text-[#FBBF24]">
+            <Flame className="h-5 w-5" />
           </div>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">{profile.dailyStreak}</p>
-          <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Day streak</p>
+          <p className="text-2xl font-bold text-white">{profile.dailyStreak}</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#6B7280]">Day Streak</p>
         </article>
 
-        <article className="card-calm p-4 text-left">
-          <div className="inline-flex rounded-lg bg-emerald-50 p-2 text-emerald-600">
-            <Target className="h-4 w-4" />
+        <article className="card-discord p-5 bg-[#1C1F2B] hover:bg-[#202330] transition-colors">
+          <div className="mb-3 inline-flex rounded bg-[#34D399]/10 p-2 text-[#34D399]">
+            <Target className="h-5 w-5" />
           </div>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">
-            {profile.completedQuests}/{profile.totalQuests}
+          <p className="text-2xl font-bold text-white">
+            {profile.completedQuests}
+            <span className="text-sm font-normal text-[#6B7280] ml-1">/ {profile.totalQuests}</span>
           </p>
-          <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Quests completed</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#6B7280]">Quests Done</p>
         </article>
 
-        <article className="card-calm p-4 text-left">
-          <div className="inline-flex rounded-lg bg-blue-50 p-2 text-blue-600">
-            <Activity className="h-4 w-4" />
+        <article className="card-discord p-5 bg-[#1C1F2B] hover:bg-[#202330] transition-colors">
+          <div className="mb-3 inline-flex rounded bg-[#8B5CF6]/10 p-2 text-[#8B5CF6]">
+            <Activity className="h-5 w-5" />
           </div>
-          <p className="mt-2 text-2xl">{profile.currentMood?.emoji || "🙂"}</p>
-          <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Mood: {profile.currentMood?.label || "Stable"}</p>
+          <p className="text-2xl font-bold text-white">{profile.currentMood?.emoji || "🙂"}</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#6B7280]">Current State</p>
         </article>
 
-        <article className="card-calm p-4 text-left">
-          <div className="inline-flex rounded-lg bg-violet-50 p-2 text-violet-600">
-            <Trophy className="h-4 w-4" />
+        <article className="card-discord p-5 bg-[#1C1F2B] hover:bg-[#202330] transition-colors">
+          <div className="mb-3 inline-flex rounded bg-[#22D3EE]/10 p-2 text-[#22D3EE]">
+            <Trophy className="h-5 w-5" />
           </div>
-          <p className="mt-2 text-2xl font-semibold text-slate-900">{profile.badges.length}</p>
-          <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Achievements</p>
+          <p className="text-2xl font-bold text-white">{profile.badges.length}</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#6B7280]">Badges</p>
         </article>
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-[1.1fr_1fr]">
-        <article className="card-calm p-5 text-left">
-          <h2 className="mb-4 inline-flex items-center gap-2 text-lg font-semibold text-slate-900">
-            <User className="h-4 w-4 text-blue-600" />
-            Character profile
-          </h2>
-
-          <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-            <p className="flex items-center gap-2">
-              <User className="h-4 w-4 text-slate-500" />
-              <span className="font-medium text-slate-900">{profile.name}</span>
-            </p>
-            <p className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-slate-500" />
-              {profile.email}
-            </p>
-            <p className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-slate-500" />
-              {profile.location}
-            </p>
-            <p className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-slate-500" />
-              Joined {profile.joinDate}
-            </p>
-          </div>
-
-          <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
-            <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Bio</p>
-            <p className="mt-1 text-sm text-slate-700">{profile.bio}</p>
-          </div>
-        </article>
-
-        <article className="card-calm p-5 text-left">
-          <h2 className="mb-4 inline-flex items-center gap-2 text-lg font-semibold text-slate-900">
-            <Award className="h-4 w-4 text-amber-500" />
-            Achievement board
+      <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+        {/* Badge Collection */}
+        <section className="card-discord p-6 bg-[#1C1F2B]">
+          <h2 className="mb-5 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#9CA3AF]">
+            <Award className="h-4 w-4 text-[#FBBF24]" />
+            Collection
           </h2>
 
           {profile.badges.length ? (
@@ -310,50 +287,80 @@ export default function CharacterPage() {
               {profile.badges.map((badge) => (
                 <div
                   key={badge}
-                  className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm text-amber-800"
+                  className="flex items-center gap-2 rounded bg-[#0B0D14] border border-[#2A2E3F] px-3 py-2 text-xs font-medium text-[#E5E7EB] transition-colors hover:border-[#FBBF24]/30"
                 >
                   <span>{badgeIcons[badge] ?? "🏆"}</span>
-                  <span className="font-medium">{badge}</span>
+                  <span>{badge}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-slate-500">No achievements yet. Complete quests to unlock your first badge.</p>
+            <div className="rounded border border-dashed border-[#2A2E3F] bg-[#0F111A] py-8 text-center">
+              <p className="text-xs text-[#6B7280]">Complete quests to earn badges.</p>
+            </div>
           )}
-        </article>
-      </section>
+        </section>
 
+        {/* Profile Details */}
+        <section className="card-discord p-6 bg-[#1C1F2B]">
+          <h2 className="mb-5 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[#9CA3AF]">
+            <User className="h-4 w-4 text-[#8B5CF6]" />
+            About Unit
+          </h2>
+
+          <div className="space-y-4">
+            <p className="text-sm leading-relaxed text-[#D1D5DB]">{profile.bio || "No bio protocol initialized."}</p>
+
+            <div className="space-y-3 border-t border-[#2A2E3F] pt-4">
+              <div className="flex items-center gap-3 text-sm text-[#9CA3AF]">
+                <Mail className="h-4 w-4 opacity-50" />
+                {profile.email}
+              </div>
+              <div className="flex items-center gap-3 text-sm text-[#9CA3AF]">
+                <MapPin className="h-4 w-4 opacity-50" />
+                {profile.location || "Unknown Location"}
+              </div>
+              <div className="flex items-center gap-3 text-sm text-[#9CA3AF]">
+                <Calendar className="h-4 w-4 opacity-50" />
+                Joined {new Date(profile.joinDate).toLocaleDateString()}
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {/* Edit Form Modal */}
       {isEditing && (
-        <div className="fixed inset-0 z-[2200] flex items-center justify-center bg-slate-900/35 p-4 backdrop-blur-sm">
-          <div className="card-calm w-full max-w-lg p-6 text-left animate-fade-in">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-slate-900">Edit character</h2>
+        <div className="fixed inset-0 z-[2200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="w-full max-w-lg rounded-xl border border-[#2A2E3F] bg-[#151823] p-6 shadow-2xl animate-slide-up">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white">Update Identity</h2>
               <button
                 type="button"
                 onClick={() => setIsEditing(false)}
-                className="rounded-lg border border-slate-300 p-1.5 text-slate-600 transition-colors hover:border-slate-400"
+                className="rounded p-1 text-[#6B7280] hover:bg-[#2A2E3F] hover:text-white"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <form className="space-y-3" onSubmit={handleSave}>
+            <form className="space-y-4" onSubmit={handleSave}>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="name">
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-[#6B7280]" htmlFor="name">
                   Name
                 </label>
                 <input
                   id="name"
                   value={formData.name ?? ""}
                   onChange={(event) => setFormData({ ...formData, name: event.target.value })}
-                  className="input-calm"
+                  className="input-discord bg-[#0B0D14]"
                   required
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="age">
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-[#6B7280]" htmlFor="age">
                     Age
                   </label>
                   <input
@@ -362,26 +369,26 @@ export default function CharacterPage() {
                     min={1}
                     value={formData.age ?? 0}
                     onChange={(event) => setFormData({ ...formData, age: Number(event.target.value) })}
-                    className="input-calm"
+                    className="input-discord bg-[#0B0D14]"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="location">
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-[#6B7280]" htmlFor="location">
                     Location
                   </label>
                   <input
                     id="location"
                     value={formData.location ?? ""}
                     onChange={(event) => setFormData({ ...formData, location: event.target.value })}
-                    className="input-calm"
+                    className="input-discord bg-[#0B0D14]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="email">
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-[#6B7280]" htmlFor="email">
                   Email
                 </label>
                 <input
@@ -389,30 +396,36 @@ export default function CharacterPage() {
                   type="email"
                   value={formData.email ?? ""}
                   onChange={(event) => setFormData({ ...formData, email: event.target.value })}
-                  className="input-calm"
+                  className="input-discord bg-[#0B0D14]"
                   required
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="bio">
-                  Bio
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-[#6B7280]" htmlFor="bio">
+                  Bio Protocols
                 </label>
                 <textarea
                   id="bio"
                   rows={3}
                   value={formData.bio ?? ""}
                   onChange={(event) => setFormData({ ...formData, bio: event.target.value })}
-                  className="input-calm resize-none"
+                  className="input-discord bg-[#0B0D14] resize-none"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 border-t border-slate-200 pt-3">
-                <button type="button" className="btn-calm-secondary" onClick={() => setIsEditing(false)} disabled={saving}>
+              <div className="flex justify-end gap-3 pt-4">
+                <button type="button" className="btn-discord-secondary" onClick={() => setIsEditing(false)} disabled={saving}>
                   Cancel
                 </button>
-                <button type="submit" className="btn-calm-primary" disabled={saving}>
-                  {saving ? "Saving..." : "Save changes"}
+                <button type="submit" className="btn-discord-primary" disabled={saving}>
+                  {saving ? (
+                    <span className="flex items-center gap-2">
+                       <Loader2 className="h-3 w-3 animate-spin" /> Saving...
+                    </span>
+                  ) : (
+                    "Save Identity"
+                  )}
                 </button>
               </div>
             </form>

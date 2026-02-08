@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
-import { Clock3, History, MessageCircle, Plus, Send, Shield, User } from "lucide-react";
+import { Clock3, Hash, History, MessageCircle, Plus, Send, Sparkles, User } from "lucide-react";
 
 interface ChatMessage {
   id: string;
@@ -30,14 +30,15 @@ interface ChatSummary {
 const ACTIVE_CHAT_STORAGE_KEY = "digital_twin_active_chat_id";
 
 const quickPrompts = [
-  "How am I doing this week?",
-  "I need focus advice",
-  "I feel stressed today",
+  "Reflect on this week",
+  "I feel stressed",
+  "Help me focus",
+  "My energy is low",
 ];
 
 const introMessage: ChatMessage = {
   id: "intro",
-  text: "I am your companion for this journey. What would you like to work through right now?",
+  text: "Hello. I'm active and listening. What's on your mind?",
   sender: "ai",
   timestamp: new Date(),
 };
@@ -324,17 +325,15 @@ export default function CompanionPage() {
   };
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-5.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_42px_-30px_rgba(15,23,42,0.6)] animate-fade-in">
-      <header className="relative flex items-center justify-between gap-3 border-b border-slate-200 bg-gradient-to-r from-[#eef2ff] to-[#f7f4ff] px-5 py-4 text-left">
+    <div className="mx-auto flex h-[calc(100vh-5.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-[#2A2E3F] bg-[#151823] shadow-lg animate-fade-in relative">
+      
+      {/* Header */}
+      <header className="relative flex items-center justify-between gap-3 border-b border-[#0B0D14] bg-[#151823] px-5 py-3.5">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-violet-500 text-white">
-            <Shield className="h-5 w-5" />
-          </div>
+          <Hash className="h-5 w-5 text-[#9CA3AF]" />
           <div>
-            <h1 className="text-lg font-semibold text-slate-900">Companion</h1>
-            <p className="text-xs text-slate-500">
-              {activeChatId ? "Active conversation in this tab" : "New conversation"}
-            </p>
+            <h1 className="text-sm font-bold text-[#E5E7EB]">companion-chat</h1>
+            <p className="text-xs text-[#6B7280]">Private channel</p>
           </div>
         </div>
 
@@ -342,28 +341,24 @@ export default function CompanionPage() {
           <button
             type="button"
             onClick={() => startNewSession()}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:border-blue-300 hover:text-blue-700"
+            className="flex h-8 w-8 items-center justify-center rounded hover:bg-[#2A2E3F] text-[#9CA3AF] transition-colors"
+            title="New Chat"
           >
-            <Plus className="h-3.5 w-3.5" />
-            New Chat
+            <Plus className="h-5 w-5" />
           </button>
 
           <button
             type="button"
             onClick={() => setHistoryPanelOpen((value) => !value)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:border-blue-300 hover:text-blue-700"
+            className="flex h-8 items-center gap-2 rounded hover:bg-[#2A2E3F] px-2 text-xs font-semibold text-[#9CA3AF] transition-colors"
           >
-            <History className="h-3.5 w-3.5" />
-            History
-            <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">
-              {historyChats.length}
-            </span>
+            <History className="h-4 w-4" />
           </button>
 
           {historyPanelOpen && (
-            <div className="absolute right-0 top-10 z-20 max-h-80 w-80 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+            <div className="absolute right-0 top-10 z-20 max-h-80 w-64 overflow-y-auto rounded-lg border border-[#0B0D14] bg-[#1C1F2B] p-2 shadow-2xl">
               {historyChats.length ? (
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {historyChats.map((chat) => (
                     <button
                       key={chat.id}
@@ -372,27 +367,19 @@ export default function CompanionPage() {
                         void openHistoryChat(chat.id);
                       }}
                       className={[
-                        "w-full rounded-lg border px-3 py-2 text-left transition-colors",
+                        "w-full rounded px-2 py-1.5 text-left transition-all",
                         chat.id === activeChatId
-                          ? "border-blue-200 bg-blue-50"
-                          : "border-transparent hover:border-slate-200 hover:bg-slate-50",
+                          ? "bg-[#2A2E3F] text-[#E5E7EB]"
+                          : "hover:bg-[#2A2E3F]/50 text-[#9CA3AF]",
                       ].join(" ")}
                       disabled={historyLoadingId === chat.id}
                     >
-                      <p className="truncate text-xs font-semibold text-slate-900">{chat.title}</p>
-                      <p className="mt-0.5 line-clamp-2 text-[11px] text-slate-500">{chat.preview}</p>
-                      <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400">
-                        <span className="inline-flex items-center gap-1">
-                          <Clock3 className="h-3 w-3" />
-                          {formatHistoryTime(chat.updatedAt)}
-                        </span>
-                        <span>{chat.messageCount} msg</span>
-                      </div>
+                      <p className="truncate text-xs font-medium">{chat.title}</p>
                     </button>
                   ))}
                 </div>
               ) : (
-                <p className="px-2 py-4 text-center text-xs text-slate-500">No previous chats yet.</p>
+                <p className="py-2 text-center text-xs text-[#6B7280]">No history yet.</p>
               )}
             </div>
           )}
@@ -400,78 +387,86 @@ export default function CompanionPage() {
       </header>
 
       {errorMessage && (
-        <div className="border-b border-orange-200 bg-orange-50 px-5 py-2 text-left text-xs text-orange-700">
+        <div className="bg-[#F87171]/10 px-6 py-2 text-center text-xs font-medium text-[#F87171] border-b border-[#F87171]/20">
           {errorMessage}
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto bg-gradient-to-b from-slate-50/40 to-white px-4 py-5">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+      {/* Chat Area */}
+      <div className="flex-1 overflow-y-auto px-4 py-6 scroll-smooth bg-[#151823]">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
           {hasMoreMessages && !bootstrapping && (
             <button
               onClick={() => void loadMoreMessages()}
               disabled={loadingMore}
-              className="mx-auto mb-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+              className="mx-auto text-xs font-medium text-[#6B7280] hover:text-[#E5E7EB] hover:underline"
             >
               {loadingMore ? "Loading..." : "Load Older Messages"}
             </button>
           )}
+
           {bootstrapping ? (
-            <p className="text-sm text-slate-500">Loading conversation...</p>
+            <div className="flex h-full flex-col items-center justify-center gap-4 py-20 opacity-50">
+               <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#8B5CF6]/30 border-t-[#8B5CF6]" />
+            </div>
           ) : (
-            messages.map((message) => (
-              <div
-                key={message.id}
-                className={[
-                  "flex items-end gap-2",
-                  message.sender === "user" ? "justify-end" : "justify-start",
-                ].join(" ")}
-              >
-                {message.sender === "ai" && (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 text-violet-700">
-                    <MessageCircle className="h-4 w-4" />
-                  </div>
-                )}
-
-                <div
-                  className={[
-                    "max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm",
-                    message.sender === "user"
-                      ? "rounded-br-md bg-blue-600 text-white"
-                      : "rounded-bl-md border border-slate-200 bg-white text-slate-800",
-                  ].join(" ")}
-                >
-                  <p>{message.text}</p>
-                  <p
-                    className={[
-                      "mt-2 text-[10px]",
-                      message.sender === "user" ? "text-blue-100" : "text-slate-400",
-                    ].join(" ")}
-                  >
-                    {new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </p>
+             messages.length <= 1 && !activeChatId ? (
+                // Empty state greeting
+                <div className="flex flex-col items-center justify-center py-16 text-center animate-fade-in">
+                    <div className="mb-4 rounded-full bg-[#1C1F2B] p-4 text-[#8B5CF6]">
+                        <Sparkles className="h-8 w-8" />
+                    </div>
+                    <h2 className="text-lg font-bold text-[#E5E7EB]">Welcome to the Link.</h2>
+                    <p className="mt-1 text-sm text-[#9CA3AF] max-w-xs">
+                        I am your digital twin. I'm ready to sync.
+                    </p>
                 </div>
+             ) : (
+                  messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={[
+                        "flex gap-4 group",
+                        message.sender === "user" ? "flex-row-reverse" : "flex-row",
+                      ].join(" ")}
+                    >
+                      <div className={`mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${message.sender === "ai" ? "bg-[#8B5CF6]" : "bg-[#2A2E3F]"}`}>
+                        {message.sender === "ai" ? <Sparkles className="h-4 w-4 text-white" /> : <User className="h-4 w-4 text-[#9CA3AF]" />}
+                      </div>
 
-                {message.sender === "user" && (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-700 text-white">
-                    <User className="h-4 w-4" />
-                  </div>
-                )}
-              </div>
-            ))
+                      <div className={`flex max-w-[80%] flex-col ${message.sender === "user" ? "items-end" : "items-start"}`}>
+                        <div className="flex items-baseline gap-2 mb-1">
+                             <span className="text-sm font-bold text-[#E5E7EB]">
+                                 {message.sender === "ai" ? "Digital Twin" : "You"}
+                             </span>
+                             <span className="text-[10px] text-[#6B7280]">
+                                 {new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                             </span>
+                        </div>
+                        <div className={`text-[0.93rem] leading-relaxed text-[#D1D5DB]`}>
+                            {message.text}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+             )
           )}
 
           {isLoading && (
-            <div className="flex items-end gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 text-violet-700">
-                <MessageCircle className="h-4 w-4" />
+            <div className="flex gap-4 animate-fade-in">
+              <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-[#8B5CF6]">
+                <Sparkles className="h-4 w-4 text-white" />
               </div>
-              <div className="rounded-2xl rounded-bl-md border border-slate-200 bg-white px-4 py-3">
-                <div className="flex gap-1.5">
-                  <span className="typing-dot h-2 w-2 rounded-full bg-violet-500" />
-                  <span className="typing-dot h-2 w-2 rounded-full bg-violet-500" />
-                  <span className="typing-dot h-2 w-2 rounded-full bg-violet-500" />
-                </div>
+              <div>
+                 <div className="flex items-baseline gap-2 mb-1">
+                      <span className="text-sm font-bold text-[#E5E7EB]">Digital Twin</span>
+                      <span className="text-[10px] text-[#6B7280]">typing...</span>
+                 </div>
+                 <div className="flex gap-1">
+                   <span className="h-1.5 w-1.5 rounded-full bg-[#8B5CF6] animate-pulse" />
+                   <span className="h-1.5 w-1.5 rounded-full bg-[#8B5CF6] animate-pulse delay-75" />
+                   <span className="h-1.5 w-1.5 rounded-full bg-[#8B5CF6] animate-pulse delay-150" />
+                 </div>
               </div>
             </div>
           )}
@@ -480,42 +475,50 @@ export default function CompanionPage() {
         </div>
       </div>
 
-      <div className="border-t border-slate-200 bg-slate-50 px-4 py-2">
-        <div className="mx-auto flex w-full max-w-3xl gap-2 overflow-x-auto">
-          {quickPrompts.map((prompt) => (
-            <button
-              key={prompt}
-              type="button"
-              onClick={() => setInput(prompt)}
-              className="whitespace-nowrap rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 transition-colors hover:border-blue-300 hover:text-blue-700"
-            >
-              {prompt}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Input Area */}
+      <div className="bg-[#151823] px-4 pb-5 pt-2">
+        <div className="mx-auto w-full max-w-3xl">
+           <div className="relative rounded-lg bg-[#1C1F2B]">
+             {/* Suggestion Chips */}
+             {messages.length < 3 && (
+                <div className="flex gap-2 p-2 overflow-x-auto pb-0 border-b border-[#2A2E3F]/50">
+                    {quickPrompts.map((prompt) => (
+                    <button
+                        key={prompt}
+                        type="button"
+                        onClick={() => setInput(prompt)}
+                        className="whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium text-[#8B5CF6] hover:bg-[#8B5CF6]/10 hover:underline transition-colors"
+                    >
+                        {prompt}
+                    </button>
+                    ))}
+                </div>
+             )}
 
-      <div className="border-t border-slate-200 bg-white px-4 py-4">
-        <div className="mx-auto flex w-full max-w-3xl items-end gap-3">
-          <textarea
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Write what is on your mind..."
-            className="min-h-[52px] max-h-[140px] flex-1 resize-none rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition-colors focus:border-blue-400"
-            rows={1}
-          />
-
-          <button
-            type="button"
-            onClick={() => {
-              void handleSend();
-            }}
-            disabled={!input.trim() || isLoading || bootstrapping}
-            className="btn-calm-primary flex h-12 w-12 items-center justify-center rounded-2xl p-0"
-          >
-            <Send className="h-4 w-4" />
-          </button>
+            <div className="flex items-end">
+                <textarea
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Message #companion-chat"
+                className="min-h-[44px] max-h-[140px] flex-1 resize-none bg-transparent px-4 py-3 text-[0.93rem] text-[#E5E7EB] placeholder:text-[#6B7280] outline-none"
+                rows={1}
+                />
+                
+                {input.trim() && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            void handleSend();
+                        }}
+                        disabled={isLoading || bootstrapping}
+                        className="mr-2 mb-2 p-2 text-[#8B5CF6] hover:text-white hover:bg-[#8B5CF6] rounded transition-all"
+                    >
+                        <Send className="h-4 w-4" />
+                    </button>
+                )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

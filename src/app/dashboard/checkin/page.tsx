@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import confetti from "canvas-confetti";
 import { useRouter } from "next/navigation";
-import { ArrowRight, BarChart2, Check, Loader2 } from "lucide-react";
+import { ArrowRight, BarChart2, Check, Loader2, Sparkles } from "lucide-react";
 
 interface ResponseEntry {
   question: string;
@@ -21,45 +21,39 @@ interface MoodOption {
   value: number;
   emoji: string;
   label: string;
-  toneClass: string;
-  selectedToneClass: string;
+  color: string;
 }
 
 const moodOptions: MoodOption[] = [
   {
     value: 1,
-    emoji: "😟",
+    emoji: "😞",
     label: "Low",
-    toneClass: "border-rose-200 bg-rose-50 text-rose-700",
-    selectedToneClass: "border-rose-300 bg-rose-100 ring-2 ring-rose-200",
+    color: "bg-[#F87171]",
   },
   {
     value: 2,
     emoji: "😐",
     label: "Neutral",
-    toneClass: "border-slate-200 bg-slate-50 text-slate-700",
-    selectedToneClass: "border-slate-300 bg-slate-100 ring-2 ring-slate-200",
+    color: "bg-[#6B7280]", // Muted gray
   },
   {
     value: 3,
     emoji: "🙂",
     label: "Good",
-    toneClass: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    selectedToneClass: "border-emerald-300 bg-emerald-100 ring-2 ring-emerald-200",
+    color: "bg-[#34D399]", // Teal
   },
   {
     value: 4,
     emoji: "😄",
     label: "Great",
-    toneClass: "border-sky-200 bg-sky-50 text-sky-700",
-    selectedToneClass: "border-sky-300 bg-sky-100 ring-2 ring-sky-200",
+    color: "bg-[#22D3EE]", // Cyan
   },
   {
     value: 5,
     emoji: "🤩",
     label: "Excellent",
-    toneClass: "border-violet-200 bg-violet-50 text-violet-700",
-    selectedToneClass: "border-violet-300 bg-violet-100 ring-2 ring-violet-200",
+    color: "bg-[#8B5CF6]", // Purple
   },
 ];
 
@@ -93,35 +87,25 @@ export default function DailyPulsePage() {
     return Math.round(((currentQuestionIndex + 1) / questions.length) * 100);
   }, [currentQuestionIndex, questions.length]);
 
-  const authHeaders = () => {
-    const token = localStorage.getItem("token");
-    if (!token) return null;
-    return { Authorization: `Bearer ${token}` };
-  };
-
   const fetchQuestions = async () => {
-    const headers = authHeaders();
-    if (!headers) {
+    const token = localStorage.getItem("token");
+    if (!token) {
       router.push("/");
       return;
     }
 
     try {
-      const response = await axios.get("/api/checkin/questions", { headers });
+      const response = await axios.get("/api/checkin/questions", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const incomingQuestions = response.data?.questions;
       setQuestions(Array.isArray(incomingQuestions) && incomingQuestions.length ? incomingQuestions : fallbackQuestions);
       setError("");
     } catch (requestError) {
-      if (axios.isAxiosError(requestError) && requestError.response?.status === 401) {
-        router.push("/");
-        return;
-      }
-
       if (axios.isAxiosError(requestError) && requestError.response?.status === 400) {
         setIsAlreadyCompleted(true);
       } else {
         setQuestions(fallbackQuestions);
-        setError("Unable to sync questions. Using fallback flow.");
       }
     } finally {
       setLoading(false);
@@ -132,8 +116,8 @@ export default function DailyPulsePage() {
     setSubmitting(true);
     setError("");
 
-    const headers = authHeaders();
-    if (!headers) {
+    const token = localStorage.getItem("token");
+    if (!token) {
       router.push("/");
       return;
     }
@@ -143,7 +127,7 @@ export default function DailyPulsePage() {
       const response = await axios.post(
         "/api/checkin/submit",
         { ratings },
-        { headers },
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       const apiResult = response.data?.result as CheckInResult | undefined;
@@ -165,30 +149,20 @@ export default function DailyPulsePage() {
 
       if (finalResult.percentage >= 80) {
         confetti({
-          particleCount: 90,
-          spread: 70,
-          origin: { y: 0.62 },
-          colors: ["#5B8DEF", "#A78BFA", "#34D399", "#F59E0B"],
+          particleCount: 120,
+          spread: 80,
+          origin: { y: 0.6 },
+          colors: ["#8B5CF6", "#34D399", "#FCD34D"],
         });
       }
-    } catch (requestError) {
-      if (axios.isAxiosError(requestError) && requestError.response?.status === 401) {
-        router.push("/");
-        return;
-      }
-
-      const message =
-        axios.isAxiosError(requestError) && requestError.response?.data?.msg
-          ? String(requestError.response.data.msg)
-          : "Failed to submit daily pulse.";
-
-      setError(message);
+    } catch {
+      setError("Failed to submit daily pulse. Please try again.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleSubmit = async () => {
+  const handleNext = async () => {
     if (!selectedRating) return;
 
     const nextResponses = [
@@ -209,168 +183,169 @@ export default function DailyPulsePage() {
     await submitCheckIn(nextResponses);
   };
 
-  const getMoodByScore = (percentage: number) => {
-    if (percentage >= 80) return moodOptions[4];
-    if (percentage >= 60) return moodOptions[3];
-    if (percentage >= 40) return moodOptions[2];
-    if (percentage >= 20) return moodOptions[1];
-    return moodOptions[0];
-  };
-
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
-          <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-          <span>Loading daily pulse...</span>
+      <div className="flex h-[80vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-[#9CA3AF]">
+          <Loader2 className="h-8 w-8 animate-spin text-[#8B5CF6]" />
+          <p className="text-sm font-medium">Loading system...</p>
         </div>
       </div>
     );
   }
 
+  // Already Completed View
   if (isAlreadyCompleted) {
     return (
-      <div className="mx-auto w-full max-w-3xl animate-fade-in">
-        <section className="card-calm p-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-            <Check className="h-8 w-8 text-emerald-600" />
+      <div className="flex min-h-[80vh] items-center justify-center p-4">
+        <div className="card-discord w-full max-w-md p-8 text-center bg-[#1C1F2B]">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-[#34D399]/10 text-[#34D399] border border-[#34D399]/20">
+            <Check className="h-8 w-8" />
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-800">Daily Pulse complete</h1>
-          <p className="mt-2 text-slate-500">You already checked in today. Come back tomorrow for the next pulse.</p>
-        </section>
+          <h1 className="mb-2 text-xl font-bold text-[#E5E7EB]">Check-in Complete</h1>
+          <p className="mb-8 text-[#9CA3AF] text-sm">
+            Data has been logged for today.
+          </p>
+          <button
+            onClick={() => router.push("/dashboard/insight")}
+            className="w-full rounded-md bg-[#2A2E3F] py-3 text-sm font-medium text-[#E5E7EB] hover:bg-[#323648] transition-colors"
+          >
+            Go to Mind Map
+          </button>
+        </div>
       </div>
     );
   }
 
+  // Success View
   if (isCompleted && result) {
-    const mood = getMoodByScore(result.percentage);
-
     return (
-      <div className="mx-auto w-full max-w-3xl animate-fade-in space-y-5">
-        <section className="card-calm p-7 text-center">
-          <p className="text-5xl" aria-label="result mood">
-            {mood.emoji}
-          </p>
-          <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">Pulse logged successfully</h1>
-          <p className="mt-1 text-slate-600">Your current state is trending toward {mood.label.toLowerCase()}.</p>
-
-          <div className="mt-6 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left sm:grid-cols-3">
-            <div>
-              <p className="text-xs uppercase tracking-wider text-slate-500">Score</p>
-              <p className="text-lg font-semibold text-slate-800">
-                {result.totalScore}/{result.maxScore}
-              </p>
+      <div className="flex min-h-[80vh] items-center justify-center p-4">
+        <div className="card-discord w-full max-w-lg p-8 text-center bg-[#1C1F2B]">
+          
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#8B5CF6]/10 text-[#8B5CF6] border-2 border-[#8B5CF6]/20 shadow-[0_0_15px_rgba(139,92,246,0.3)]">
+              <Check className="h-10 w-10" />
             </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider text-slate-500">Completion</p>
-              <p className="text-lg font-semibold text-slate-800">{result.percentage}%</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider text-slate-500">Reward</p>
-              <p className="xp-pill">+{result.percentage} XP</p>
-            </div>
-          </div>
 
-          <div className="mt-4 progress-track">
-            <div className="progress-fill" style={{ width: `${result.percentage}%` }} />
-          </div>
-        </section>
+            <h1 className="mb-2 text-2xl font-bold text-[#E5E7EB]">System Updated</h1>
+            <p className="mb-8 text-[#9CA3AF]">Your metrics have been recorded.</p>
 
-        <section className="card-calm p-5">
-          <div className="mb-3 flex items-center gap-2 text-left">
-            <BarChart2 className="h-4 w-4 text-blue-600" />
-            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-700">Response Breakdown</h2>
-          </div>
-          <div className="space-y-2">
-            {responses.map((entry, index) => {
-              const entryMood = moodOptions.find((option) => option.value === entry.rating) ?? moodOptions[2];
-              return (
-                <div
-                  key={`${entry.question}-${index}`}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3"
-                >
-                  <p className="text-sm text-slate-700">{entry.question}</p>
-                  <span className="text-2xl" aria-label={entryMood.label}>
-                    {entryMood.emoji}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+            <div className="mb-8 flex justify-center gap-4">
+               <div className="rounded bg-[#0F111A] px-5 py-3 border border-[#2A2E3F]">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280]">Score</p>
+                  <p className="text-xl font-bold text-white">{result.percentage}%</p>
+               </div>
+               <div className="rounded bg-[#0F111A] px-5 py-3 border border-[#2A2E3F]">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280]">Reward</p>
+                  <p className="text-xl font-bold text-[#34D399]">+{result.percentage} XP</p>
+               </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <button
+                 onClick={() => router.push("/dashboard/insight")}
+                 className="btn-discord-primary w-full"
+              >
+                View Insights
+              </button>
+              <button
+                onClick={() => router.push("/dashboard")}
+                className="w-full rounded-md py-3 text-sm font-medium text-[#9CA3AF] hover:text-white transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
+        </div>
       </div>
     );
   }
 
+  // Question Flow
   return (
-    <div className="mx-auto w-full max-w-3xl animate-fade-in space-y-4">
-      {error && (
-        <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">{error}</div>
-      )}
+    <div className="flex min-h-[80vh] flex-col items-center justify-center p-4 text-[#E5E7EB]">
+      <div className="mb-8 text-center animate-fade-in">
+        <span className="text-xs font-bold uppercase tracking-widest text-[#6B7280]">Daily Pulse</span>
+        <h1 className="text-2xl font-bold mt-1">System Check</h1>
+      </div>
 
-      <header className="text-left">
-        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Daily Pulse</h1>
-        <p className="mt-1 text-sm text-slate-600">A quick emotional check to anchor today&apos;s direction.</p>
-      </header>
+      <div className="card-discord w-full max-w-2xl p-8 bg-[#1C1F2B] animate-fade-in">
+        {error && (
+            <div className="mb-6 rounded border border-[#F87171]/20 bg-[#F87171]/10 px-4 py-3 text-sm text-[#F87171]">
+                {error}
+            </div>
+        )}
 
-      <section className="card-calm p-6">
-        <div className="mb-5 flex items-center justify-between gap-2 text-sm">
-          <p className="font-medium text-slate-700">
-            Question {currentQuestionIndex + 1} of {questions.length}
-          </p>
-          <span className="text-slate-500">{completionPercent}% of pulse flow</span>
+        {/* Progress */}
+        <div className="mb-8 space-y-2">
+          <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-[#6B7280]">
+            <span>Query {currentQuestionIndex + 1} / {questions.length}</span>
+            <span>{completionPercent}%</span>
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#0F111A]">
+            <div 
+                className="h-full rounded-full bg-[#8B5CF6] transition-all duration-300 ease-out"
+                style={{ width: `${completionPercent}%` }}
+            />
+          </div>
         </div>
 
-        <div className="mb-6 progress-track">
-          <div className="progress-fill" style={{ width: `${completionPercent}%` }} />
+        {/* Question */}
+        <div className="mb-10 text-center">
+            <h2 className="text-xl font-medium leading-relaxed text-white">
+                {questions[currentQuestionIndex]}
+            </h2>
         </div>
 
-        <p className="mb-6 text-lg font-medium leading-relaxed text-slate-900">{questions[currentQuestionIndex]}</p>
-
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {moodOptions.map((mood) => {
-            const isSelected = selectedRating === mood.value;
-            return (
-              <button
-                key={mood.value}
-                type="button"
-                onClick={() => setSelectedRating(mood.value)}
-                className={[
-                  "rounded-xl border px-3 py-3 text-center transition-all duration-200",
-                  mood.toneClass,
-                  isSelected ? mood.selectedToneClass : "hover:border-slate-300",
-                ].join(" ")}
-              >
-                <span className="block text-3xl">{mood.emoji}</span>
-                <span className="mt-1 block text-xs font-semibold">{mood.label}</span>
-              </button>
-            );
-          })}
+        {/* Mood Selector */}
+        <div className="mb-10 grid grid-cols-5 gap-3">
+            {moodOptions.map((mood) => {
+                const isSelected = selectedRating === mood.value;
+                return (
+                    <button
+                        key={mood.value}
+                        type="button"
+                        onClick={() => setSelectedRating(mood.value)}
+                        className={`group relative flex flex-col items-center justify-center gap-2 rounded-lg p-3 transition-all duration-200 border ${
+                            isSelected 
+                                ? `bg-[#2A2E3F] border-[#8B5CF6] shadow-[0_0_10px_rgba(139,92,246,0.2)]` 
+                                : "bg-[#151823] border-[#2A2E3F] hover:bg-[#2A2E3F] hover:border-[#9CA3AF]"
+                        }`}
+                    >
+                        <span className="text-3xl transition-transform duration-200 group-hover:scale-110">
+                            {mood.emoji}
+                        </span>
+                        {isSelected && (
+                             <span className="text-[10px] font-bold uppercase tracking-wide text-[#E5E7EB]">
+                                {mood.label}
+                             </span>
+                        )}
+                    </button>
+                );
+            })}
         </div>
 
+        {/* Action Button */}
         <button
-          type="button"
-          onClick={() => {
-            void handleSubmit();
-          }}
-          disabled={!selectedRating || submitting}
-          className="btn-calm-primary mt-6 flex w-full items-center justify-center gap-2"
+            type="button"
+            onClick={() => void handleNext()}
+            disabled={!selectedRating || submitting}
+            className="btn-discord-primary w-full py-3 text-sm font-bold shadow-lg"
         >
-          {submitting ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Saving pulse...
-            </>
-          ) : currentQuestionIndex < questions.length - 1 ? (
-            <>
-              Next question
-              <ArrowRight className="h-4 w-4" />
-            </>
-          ) : (
-            "Complete daily pulse"
-          )}
+            {submitting ? (
+                <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Processing...</span>
+                </div>
+            ) : currentQuestionIndex < questions.length - 1 ? (
+                <div className="flex items-center justify-center gap-2">
+                    <span>Next Query</span>
+                    <ArrowRight className="h-4 w-4" />
+                </div>
+            ) : (
+                "Complete"
+            )}
         </button>
-      </section>
+      </div>
     </div>
   );
 }

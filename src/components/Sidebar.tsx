@@ -5,12 +5,12 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Activity,
-  BarChart2,
+  BrainCircuit,
+  Compass,
   LogOut,
-  MessageCircle,
-  Shield,
-  Target,
+  MessageSquareText,
   User,
+  Zap,
 } from "lucide-react";
 
 interface NavItem {
@@ -40,16 +40,19 @@ function SidebarNavItem({ href, label, icon, active }: NavItemProps) {
     <Link
       href={href}
       className={[
-        "group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-all duration-200",
+        "group flex items-center gap-3 rounded-md px-3 py-2.5 text-[0.95rem] font-medium transition-all duration-200",
         active
-          ? "border-blue-200 bg-white text-blue-700 shadow-[0_12px_24px_-22px_rgba(91,141,239,0.9)]"
-          : "border-transparent text-slate-600 hover:border-blue-100 hover:bg-white/80 hover:text-slate-900",
+          ? "bg-[#8B5CF6]/10 text-white" 
+          : "text-[#9CA3AF] hover:bg-[#1C1F2B] hover:text-[#E5E7EB]",
       ].join(" ")}
     >
-      <span className={active ? "text-blue-600" : "text-slate-500 group-hover:text-slate-700"}>
+      <span className={active ? "text-[#8B5CF6]" : "text-[#9CA3AF] group-hover:text-[#E5E7EB]"}>
         {icon}
       </span>
-      <span className="truncate font-medium">{label}</span>
+      <span>{label}</span>
+      {active && (
+        <div className="ml-auto h-1.5 w-1.5 rounded-full bg-[#8B5CF6]" />
+      )}
     </Link>
   );
 }
@@ -122,10 +125,6 @@ export default function Sidebar() {
     return Math.max(0, Math.min(100, Math.round((progress.currentXP / progress.requiredXP) * 100)));
   }, [progress.currentXP, progress.requiredXP]);
 
-  const xpToNextLevel = useMemo(() => {
-    return Math.max(0, progress.requiredXP - progress.currentXP);
-  }, [progress.currentXP, progress.requiredXP]);
-
   const handleSignOut = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("userProfile");
@@ -135,27 +134,27 @@ export default function Sidebar() {
   const navItems: NavItem[] = [
     {
       href: "/dashboard/checkin",
-      label: "Daily Pulse",
+      label: "Pulse",
       icon: <Activity className="h-5 w-5" />,
     },
     {
       href: "/dashboard/quest",
-      label: "Quest Log",
-      icon: <Target className="h-5 w-5" />,
+      label: "Quests",
+      icon: <Compass className="h-5 w-5" />,
     },
     {
       href: "/dashboard/insight",
       label: "Mind Map",
-      icon: <BarChart2 className="h-5 w-5" />,
+      icon: <BrainCircuit className="h-5 w-5" />,
     },
     {
       href: "/dashboard/chat",
       label: "Companion",
-      icon: <MessageCircle className="h-5 w-5" />,
+      icon: <MessageSquareText className="h-5 w-5" />,
     },
     {
       href: "/dashboard/profile",
-      label: "Character",
+      label: "Profile",
       icon: <User className="h-5 w-5" />,
     },
   ];
@@ -163,28 +162,23 @@ export default function Sidebar() {
   return (
     <aside
       className={[
-        "fixed z-[1000] flex h-screen flex-col border-r border-[#d9ddf4]",
-        "bg-gradient-to-b from-[#f1f2fb] via-[#ecefff] to-[#eef1fb]",
+        "fixed z-[1000] flex h-screen flex-col",
+        "bg-[#0B0D14]",
         "w-[var(--sidebar-width)]",
       ].join(" ")}
     >
-      <div className="flex h-16 items-center border-b border-[#d9ddf4] px-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-violet-500 text-white shadow-[0_14px_24px_-18px_rgba(91,141,239,0.95)]">
-            <Shield className="h-4 w-4" />
+      {/* Header */}
+      <div className="flex h-14 items-center px-4 border-b border-[#151823]">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#8B5CF6] text-white shadow-sm">
+            <Zap className="h-4 w-4 fill-white" />
           </div>
-          <div>
-            <p className="text-sm font-semibold tracking-tight text-slate-800">Digital Twin</p>
-            <p className="text-[11px] text-slate-500">Calm growth system</p>
-          </div>
+          <span className="text-[0.95rem] font-bold text-[#E5E7EB]">Digital Twin</span>
         </div>
       </div>
 
-      <p className="px-4 pt-4 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-        Navigator
-      </p>
-
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      {/* Navigation */}
+      <nav className="flex-1 space-y-0.5 px-2 py-4">
         {navItems.map((item) => (
           <SidebarNavItem
             key={item.href}
@@ -196,27 +190,37 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="mx-3 mb-3 rounded-xl border border-blue-100 bg-white/90 p-3 text-left">
-        <div className="mb-2 flex items-center justify-between text-xs text-slate-600">
-          <span className="font-medium">Level {progress.level}</span>
-          <span className="xp-pill">{loadingProgress ? "..." : `${progress.currentXP} XP`}</span>
+      {/* User Widget */}
+      <div className="bg-[#080a0f] p-3 border-t border-[#151823]">
+        <div className="flex items-center gap-3">
+           <div className="relative">
+             <div className="h-9 w-9 bg-[#1C1F2B] rounded-full flex items-center justify-center text-[#9CA3AF] border border-[#2A2E3F]">
+                <User className="h-5 w-5" />
+             </div>
+             <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-[#34D399] rounded-full border-2 border-[#0B0D14]" />
+           </div>
+           
+           <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                 <p className="text-sm font-semibold text-white truncate">Unit Lvl {progress.level}</p>
+                 <span className="text-xs text-[#8B5CF6] font-medium">{progress.currentXP} XP</span>
+              </div>
+              <div className="mt-1 h-1.5 w-full bg-[#1C1F2B] rounded-full overflow-hidden">
+                 <div
+                    className="h-full bg-[#8B5CF6] rounded-full"
+                    style={{ width: `${progressPercent}%` }}
+                 />
+              </div>
+           </div>
         </div>
-        <div className="progress-track h-2">
-          <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
-        </div>
-        <p className="mt-1 text-[11px] text-slate-500">
-          {loadingProgress ? "Loading level..." : `${xpToNextLevel} XP to next level`}
-        </p>
-      </div>
 
-      <div className="border-t border-[#d9ddf4] px-3 py-3">
         <button
           onClick={handleSignOut}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-transparent px-3 py-2 text-sm text-slate-600 transition-all duration-200 hover:border-red-100 hover:bg-red-50 hover:text-red-600"
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-[#1C1F2B] px-3 py-1.5 text-xs font-medium text-[#9CA3AF] hover:bg-[#2A2E3F] hover:text-white transition-colors"
           type="button"
         >
-          <LogOut className="h-4 w-4" />
-          <span className="font-medium">Sign Out</span>
+          <LogOut className="h-3 w-3" />
+          <span>Disconnect</span>
         </button>
       </div>
     </aside>

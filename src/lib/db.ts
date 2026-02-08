@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
-import { MongoMemoryServer } from 'mongodb-memory-server';
 
-let mongoServer: MongoMemoryServer;
+
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
@@ -24,14 +23,15 @@ async function dbConnect() {
   let uri = MONGODB_URI || '';
 
   if (!uri) {
-    if (!mongoServer) {
-        mongoServer = await MongoMemoryServer.create();
-        uri = mongoServer.getUri();
-        console.log('Started MongoDB Memory Server at', uri);
-    } else {
-        uri = mongoServer.getUri();
-    }
+    console.error('❌ MONGODB_URI is not defined in .env file');
+    // If you want to strictly fail when no DB is provided:
+    // throw new Error('Please define the MONGODB_URI environment variable inside .env');
+    
+
+  } else {
+      console.log('Attempting to connect to MongoDB...');
   }
+
 
   if (!cached.promise) {
     const opts = {
@@ -45,8 +45,10 @@ async function dbConnect() {
 
   try {
     cached.conn = await cached.promise;
+    console.log(`✅ MongoDB Connected to ${cached.conn.connection.host}`);
   } catch (e) {
     cached.promise = null;
+    console.error('❌ MongoDB Connection Error:', e);
     throw e;
   }
 
