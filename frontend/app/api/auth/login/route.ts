@@ -1,8 +1,9 @@
-﻿import bcrypt from 'bcryptjs';
+import bcrypt from 'bcryptjs';
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { signToken } from '@/lib/auth';
 import User from '@/lib/models/User';
+import { badRequest, unauthorized, serverError } from '@/lib/api-response';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,17 +21,17 @@ export async function POST(req: Request) {
     const password = String(body.password || '').trim();
 
     if (!email || !password) {
-      return NextResponse.json({ msg: 'Email and password are required.' }, { status: 400 });
+      return badRequest('Email and password are required.');
     }
 
     const user = await User.findOne({ email });
     if (!user) {
-      return NextResponse.json({ msg: 'Invalid credentials.' }, { status: 401 });
+      return unauthorized('Invalid credentials.');
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return NextResponse.json({ msg: 'Invalid credentials.' }, { status: 401 });
+      return unauthorized('Invalid credentials.');
     }
 
     const token = signToken({ id: user.id, email: user.email });
@@ -44,7 +45,6 @@ export async function POST(req: Request) {
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
-    return NextResponse.json({ msg: 'Server error.' }, { status: 500 });
+    return serverError(error, 'Login error');
   }
 }

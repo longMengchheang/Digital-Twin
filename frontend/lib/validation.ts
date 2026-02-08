@@ -25,3 +25,14 @@ export function validatePassword(password: string): { isValid: boolean; message:
   }
   return { isValid: true, message: '' };
 }
+
+/**
+ * Validates an email address format.
+ */
+export function validateEmail(email: string): { isValid: boolean; message: string } {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return { isValid: false, message: 'Invalid email format.' };
+  }
+  return { isValid: true, message: '' };
+}

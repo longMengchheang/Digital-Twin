@@ -1,5 +1,5 @@
 import { expect, test, describe } from "bun:test";
-import { validatePassword } from "./validation";
+import { validatePassword, validateEmail } from "./validation";
 
 describe("validatePassword", () => {
   test("should reject short passwords", () => {
@@ -40,5 +40,22 @@ describe("validatePassword", () => {
   test("should accept valid passwords with spaces as special characters", () => {
     const result = validatePassword("Space is special 1A");
     expect(result.isValid).toBe(true);
+  });
+});
+
+describe("validateEmail", () => {
+  test("should accept valid emails", () => {
+    expect(validateEmail("test@example.com").isValid).toBe(true);
+    expect(validateEmail("user.name@domain.co.uk").isValid).toBe(true);
+    expect(validateEmail("user+tag@domain.com").isValid).toBe(true);
+  });
+
+  test("should reject invalid emails", () => {
+    expect(validateEmail("invalid-email").isValid).toBe(false);
+    expect(validateEmail("user@domain").isValid).toBe(false);
+    expect(validateEmail("@domain.com").isValid).toBe(false);
+    expect(validateEmail("user@.com").isValid).toBe(false);
+    expect(validateEmail("user@domain.").isValid).toBe(false);
+    expect(validateEmail("").isValid).toBe(false);
   });
 });

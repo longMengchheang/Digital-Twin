@@ -7,6 +7,7 @@ import {
   type BadgeContext,
   getMoodFromCheckIn
 } from "./progression";
+import { applyXPDelta, getRequiredXP, computeDailyStreak, deriveBadges, type BadgeContext, getMoodFromCheckIn } from "./progression";
 
 describe("getRequiredXP", () => {
   test("should return base XP for level 1", () => {
