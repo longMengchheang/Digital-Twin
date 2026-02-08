@@ -3,7 +3,7 @@ import dbConnect from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
 import { getDayKey } from '@/lib/progression';
 import { adjustUserXP } from '@/lib/user-progress';
-import { recordFeatureSignals } from '@/lib/feature-signals';
+import { recordFeatureSignals } from '@/lib/neon/feature-signals';
 import CheckIn from '@/lib/models/CheckIn';
 
 export const dynamic = 'force-dynamic';
