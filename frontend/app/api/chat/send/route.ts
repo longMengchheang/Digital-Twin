@@ -427,7 +427,7 @@ export async function POST(req: Request) {
     const userMessageTimestamp = new Date();
     const aiMessageTimestamp = new Date();
 
-    const insertedUser = await ChatMessage.create({
+    const userMessageDoc = new ChatMessage({
       userId: user.id,
       chatId,
       role: 'user',
@@ -436,32 +436,32 @@ export async function POST(req: Request) {
       updatedAt: userMessageTimestamp,
     });
 
-    await ChatMessage.create({
-      userId: user.id,
-      chatId,
-      role: 'ai',
-      content: companionResult.text,
-      createdAt: aiMessageTimestamp,
-      updatedAt: aiMessageTimestamp,
-    });
+    const userMessageId = String(userMessageDoc._id);
 
-    await ChatConversation.findOneAndUpdate(
-      { _id: chatId, userId: user.id },
-      {
-        $set: {
-          updatedAt: aiMessageTimestamp,
-          lastMessagePreview: shorten(companionResult.text || message, 88),
+    const [, , , extractedSignals] = await Promise.all([
+      userMessageDoc.save(),
+      ChatMessage.create({
+        userId: user.id,
+        chatId,
+        role: 'ai',
+        content: companionResult.text,
+        createdAt: aiMessageTimestamp,
+        updatedAt: aiMessageTimestamp,
+      }),
+      ChatConversation.findOneAndUpdate(
+        { _id: chatId, userId: user.id },
+        {
+          $set: {
+            updatedAt: aiMessageTimestamp,
+            lastMessagePreview: shorten(companionResult.text || message, 88),
+          },
+          $inc: {
+            messageCount: 2,
+          },
         },
-        $inc: {
-          messageCount: 2,
-        },
-      },
-    );
-
-    const userMessageId = String(insertedUser._id || '');
-    const extractedSignals = userMessageId
-      ? await persistStructuredSignals(user.id, userMessageId, message, companionResult.model)
-      : [];
+      ),
+      persistStructuredSignals(user.id, userMessageId, message, companionResult.model),
+    ]);
 
     const userMessage = {
       role: 'user' as const,
