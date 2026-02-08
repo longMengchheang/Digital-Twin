@@ -1,5 +1,5 @@
 import { expect, test, describe } from "bun:test";
-import { applyXPDelta, getRequiredXP } from "./progression";
+import { applyXPDelta, getRequiredXP, computeDailyStreak, deriveBadges, type BadgeContext, getMoodFromCheckIn } from "./progression";
 
 describe("getRequiredXP", () => {
   test("should return base XP for level 1", () => {
@@ -27,8 +27,6 @@ describe("getRequiredXP", () => {
     expect(getRequiredXP(NaN)).toBe(100);
   });
 });
-import { applyXPDelta, computeDailyStreak } from "./progression";
-import { applyXPDelta, deriveBadges, type BadgeContext } from "./progression";
 
 describe("applyXPDelta", () => {
   test("should gain XP without leveling up", () => {
@@ -201,6 +199,9 @@ describe("computeDailyStreak", () => {
       new Date("2023-12-31T10:00:00"),
     ];
     expect(computeDailyStreak(dates)).toBe(2);
+  });
+});
+
 describe("deriveBadges", () => {
   const baseContext: BadgeContext = {
     totalQuests: 0,
@@ -288,6 +289,9 @@ describe("deriveBadges", () => {
     const badges = deriveBadges(context);
     expect(badges).toContain("First Quest");
     expect(badges.filter((b) => b === "First Quest").length).toBe(1);
+  });
+});
+
 describe("getMoodFromCheckIn", () => {
   test("should return 'Excellent' for scores >= 80%", () => {
     expect(getMoodFromCheckIn(20, 25)).toEqual({ emoji: '🤩', label: 'Excellent' }); // 80%
