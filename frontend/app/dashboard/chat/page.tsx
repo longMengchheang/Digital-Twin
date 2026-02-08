@@ -78,16 +78,24 @@ export default function CompanionPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [bootstrapping, setBootstrapping] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const historyPanelRef = useRef<HTMLDivElement>(null);
+  const shouldScrollToBottomRef = useRef(true);
 
   useEffect(() => {
     void initializeChatPage();
   }, []);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (shouldScrollToBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    } else {
+      shouldScrollToBottomRef.current = true;
+    }
   }, [messages, isLoading]);
 
   useEffect(() => {
@@ -137,6 +145,11 @@ export default function CompanionPage() {
     });
 
     const rawMessages = Array.isArray(response.data?.messages) ? (response.data.messages as ServerMessage[]) : [];
+    const pagination = response.data?.pagination || {};
+
+    setHasMoreMessages(!!pagination.hasMore);
+    setNextCursor(pagination.nextCursor || null);
+
     const parsedMessages = rawMessages
       .map((message, index) => toUiMessage(message, `history-${index}`))
       .filter((message): message is ChatMessage => Boolean(message));
@@ -144,6 +157,41 @@ export default function CompanionPage() {
     setMessages(parsedMessages.length ? parsedMessages : [introMessage]);
     setActiveChatId(chatId);
     sessionStorage.setItem(ACTIVE_CHAT_STORAGE_KEY, chatId);
+    shouldScrollToBottomRef.current = true;
+  };
+
+  const loadMoreMessages = async () => {
+    if (!nextCursor || loadingMore || !activeChatId) return;
+
+    const headers = authHeaders();
+    if (!headers) return;
+
+    setLoadingMore(true);
+    try {
+      const response = await axios.get("/api/chat/history", {
+        headers,
+        params: { chatId: activeChatId, cursor: nextCursor },
+      });
+
+      const rawMessages = Array.isArray(response.data?.messages) ? (response.data.messages as ServerMessage[]) : [];
+      const pagination = response.data?.pagination || {};
+
+      setHasMoreMessages(!!pagination.hasMore);
+      setNextCursor(pagination.nextCursor || null);
+
+      const parsedMessages = rawMessages
+        .map((message, index) => toUiMessage(message, `history-more-${Date.now()}-${index}`))
+        .filter((message): message is ChatMessage => Boolean(message));
+
+      if (parsedMessages.length > 0) {
+        shouldScrollToBottomRef.current = false;
+        setMessages((prev) => [...parsedMessages, ...prev]);
+      }
+    } catch (error) {
+      console.error("Failed to load more messages", error);
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   const initializeChatPage = async () => {
@@ -359,6 +407,15 @@ export default function CompanionPage() {
 
       <div className="flex-1 overflow-y-auto bg-gradient-to-b from-slate-50/40 to-white px-4 py-5">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+          {hasMoreMessages && !bootstrapping && (
+            <button
+              onClick={() => void loadMoreMessages()}
+              disabled={loadingMore}
+              className="mx-auto mb-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {loadingMore ? "Loading..." : "Load Older Messages"}
+            </button>
+          )}
           {bootstrapping ? (
             <p className="text-sm text-slate-500">Loading conversation...</p>
           ) : (

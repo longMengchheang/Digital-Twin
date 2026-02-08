@@ -45,10 +45,30 @@ export async function GET(req: Request) {
         return NextResponse.json({ msg: 'Chat not found.' }, { status: 404 });
       }
 
-      const messages = await ChatMessage.find({ chatId, userId: user.id })
+      const limitParam = parseInt(url.searchParams.get('limit') || '50', 10);
+      const limit = Math.max(1, Math.min(100, limitParam));
+      const cursor = url.searchParams.get('cursor'); // timestamp string
+
+      const query: any = { chatId, userId: user.id };
+      if (cursor) {
+        const cursorDate = new Date(cursor);
+        if (!isNaN(cursorDate.getTime())) {
+          query.createdAt = { $lt: cursorDate };
+        }
+      }
+
+      const messagesRaw = await ChatMessage.find(query)
         .select('_id role content createdAt')
-        .sort({ createdAt: 1 })
+        .sort({ createdAt: -1 }) // Newest first
+        .limit(limit + 1) // Fetch one extra to check for more
         .lean();
+
+      const hasMore = messagesRaw.length > limit;
+      const messagesSlice = hasMore ? messagesRaw.slice(0, limit) : messagesRaw;
+      const nextCursor = messagesSlice.length > 0 ? messagesSlice[messagesSlice.length - 1].createdAt : null;
+
+      // Reverse to return in chronological order
+      const messages = messagesSlice.reverse();
 
       return NextResponse.json({
         chat: {
@@ -57,6 +77,10 @@ export async function GET(req: Request) {
           preview: String(conversation.lastMessagePreview || ''),
           updatedAt: new Date(conversation.updatedAt || Date.now()).toISOString(),
           messageCount: Number(conversation.messageCount || 0),
+        },
+        pagination: {
+          nextCursor: nextCursor ? new Date(nextCursor).toISOString() : null,
+          hasMore,
         },
         messages: messages
           .filter((message) => message.role === 'user' || message.role === 'ai')
