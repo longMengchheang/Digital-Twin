@@ -1,5 +1,5 @@
 import { expect, test, describe } from "bun:test";
-import { normalizeSignalType, CHAT_SIGNAL_TYPES, sanitizeExtractedSignals } from "./chatSignals";
+import { normalizeSignalType, CHAT_SIGNAL_TYPES, sanitizeExtractedSignals, parseSignalResponseText } from "./chatSignals";
 
 describe("normalizeSignalType", () => {
   describe("Exact Matches", () => {
@@ -72,6 +72,90 @@ describe("normalizeSignalType", () => {
 
     test("should handle objects gracefully", () => {
         expect(normalizeSignalType({})).toBeNull();
+    });
+  });
+});
+
+describe("parseSignalResponseText", () => {
+  describe("Markdown and Formatting", () => {
+    test("should parse JSON from markdown code blocks", () => {
+      const input = '```json\n[{"signalType": "stress", "intensity": 4}]\n```';
+      const result = parseSignalResponseText(input);
+      expect(result).toHaveLength(1);
+      expect(result[0].signalType).toBe("stress");
+    });
+
+    test("should parse JSON from unlabelled code blocks", () => {
+      const input = '```\n[{"signalType": "focus"}]\n```';
+      const result = parseSignalResponseText(input);
+      expect(result).toHaveLength(1);
+      expect(result[0].signalType).toBe("focus");
+    });
+
+    test("should handle surrounding text", () => {
+      const input = 'Here are the signals: [{"signalType": "motivation"}] Hope this helps.';
+      const result = parseSignalResponseText(input);
+      expect(result).toHaveLength(1);
+      expect(result[0].signalType).toBe("motivation");
+    });
+  });
+
+  describe("JSON Structures", () => {
+    test("should parse direct array", () => {
+      const input = '[{"signalType": "anxiety"}]';
+      const result = parseSignalResponseText(input);
+      expect(result).toHaveLength(1);
+      expect(result[0].signalType).toBe("anxiety");
+    });
+
+    test("should parse object with signals property", () => {
+      const input = '{"signals": [{"signalType": "fatigue"}]}';
+      const result = parseSignalResponseText(input);
+      expect(result).toHaveLength(1);
+      expect(result[0].signalType).toBe("fatigue");
+    });
+
+    test("should parse object with data property", () => {
+      const input = '{"data": [{"signalType": "confidence"}]}';
+      const result = parseSignalResponseText(input);
+      expect(result).toHaveLength(1);
+      expect(result[0].signalType).toBe("confidence");
+    });
+  });
+
+  describe("Error Handling", () => {
+    test("should return empty array for empty string", () => {
+      expect(parseSignalResponseText("")).toEqual([]);
+    });
+
+    test("should return empty array for whitespace", () => {
+      expect(parseSignalResponseText("   ")).toEqual([]);
+    });
+
+    test("should return empty array for invalid JSON", () => {
+      expect(parseSignalResponseText("invalid json")).toEqual([]);
+      expect(parseSignalResponseText('[{"signalType": "stress"')).toEqual([]); // Missing closing bracket
+    });
+
+    test("should return empty array if no signals found in valid JSON", () => {
+      expect(parseSignalResponseText("{}")).toEqual([]);
+      expect(parseSignalResponseText('{"other": []}')).toEqual([]);
+    });
+  });
+
+  describe("Complex Scenarios", () => {
+    test("should extract array from text containing JSON object", () => {
+      // The parser extracts [...] so it handles this by finding the inner array
+      const input = 'Response: {"signals": [{"signalType": "mindfulness"}]}';
+      const result = parseSignalResponseText(input);
+      expect(result).toHaveLength(1);
+      expect(result[0].signalType).toBe("mindfulness");
+    });
+
+    test("should extract multiple signals", () => {
+      const input = '[{"signalType": "stress"}, {"signalType": "focus"}]';
+      const result = parseSignalResponseText(input);
+      expect(result).toHaveLength(2);
     });
   });
 });
