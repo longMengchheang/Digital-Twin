@@ -5,6 +5,7 @@ import { computeDailyStreak, deriveBadges, getMoodFromCheckIn } from '@/lib/prog
 import CheckIn from '@/lib/models/CheckIn';
 import Quest from '@/lib/models/Quest';
 import User from '@/lib/models/User';
+import { formatJoinDate } from '@/lib/date';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,11 +16,6 @@ interface ProfileUpdatePayload {
   location?: string;
   bio?: string;
   avatarStage?: string;
-}
-
-function formatJoinDate(date: Date | string): string {
-  const parsed = new Date(date);
-  return parsed.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
 async function buildProfile(userId: string) {
