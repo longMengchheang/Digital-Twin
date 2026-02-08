@@ -1,5 +1,5 @@
 import { expect, test, describe } from "bun:test";
-import { applyXPDelta } from "./progression";
+import { applyXPDelta, deriveBadges, type BadgeContext } from "./progression";
 
 describe("applyXPDelta", () => {
   test("should gain XP without leveling up", () => {
@@ -105,5 +105,95 @@ describe("applyXPDelta", () => {
       currentXP: 20,
       requiredXP: 100,
     });
+  });
+});
+
+describe("deriveBadges", () => {
+  const baseContext: BadgeContext = {
+    totalQuests: 0,
+    completedQuests: 0,
+    checkInCount: 0,
+    streak: 0,
+    level: 1,
+    hasEarlyCheckIn: false,
+    existingBadges: [],
+  };
+
+  test("should return empty array for initial state", () => {
+    const context: BadgeContext = { ...baseContext };
+    const badges = deriveBadges(context);
+    expect(badges).toEqual([]);
+  });
+
+  test("should earn 'First Quest' badge", () => {
+    const context: BadgeContext = { ...baseContext, totalQuests: 1 };
+    const badges = deriveBadges(context);
+    expect(badges).toContain("First Quest");
+  });
+
+  test("should earn 'Week Warrior' badge", () => {
+    const context: BadgeContext = { ...baseContext, completedQuests: 7 };
+    const badges = deriveBadges(context);
+    expect(badges).toContain("Week Warrior");
+  });
+
+  test("should earn 'Level 10' badge", () => {
+    const context: BadgeContext = { ...baseContext, level: 10 };
+    const badges = deriveBadges(context);
+    expect(badges).toContain("Level 10");
+  });
+
+  test("should earn 'Streak Master' badge", () => {
+    const context: BadgeContext = { ...baseContext, streak: 30 };
+    const badges = deriveBadges(context);
+    expect(badges).toContain("Streak Master");
+  });
+
+  test("should earn 'Mindful' badge", () => {
+    const context: BadgeContext = { ...baseContext, checkInCount: 10 };
+    const badges = deriveBadges(context);
+    expect(badges).toContain("Mindful");
+  });
+
+  test("should earn 'Early Bird' badge", () => {
+    const context: BadgeContext = { ...baseContext, hasEarlyCheckIn: true };
+    const badges = deriveBadges(context);
+    expect(badges).toContain("Early Bird");
+  });
+
+  test("should earn multiple badges simultaneously", () => {
+    const context: BadgeContext = {
+      ...baseContext,
+      totalQuests: 1,
+      completedQuests: 7,
+      level: 10,
+    };
+    const badges = deriveBadges(context);
+    expect(badges).toContain("First Quest");
+    expect(badges).toContain("Week Warrior");
+    expect(badges).toContain("Level 10");
+    expect(badges.length).toBe(3);
+  });
+
+  test("should preserve existing badges", () => {
+    const context: BadgeContext = {
+      ...baseContext,
+      existingBadges: ["Old Badge"],
+      totalQuests: 1,
+    };
+    const badges = deriveBadges(context);
+    expect(badges).toContain("Old Badge");
+    expect(badges).toContain("First Quest");
+  });
+
+  test("should not duplicate existing badges", () => {
+    const context: BadgeContext = {
+      ...baseContext,
+      existingBadges: ["First Quest"],
+      totalQuests: 1,
+    };
+    const badges = deriveBadges(context);
+    expect(badges).toContain("First Quest");
+    expect(badges.filter((b) => b === "First Quest").length).toBe(1);
   });
 });
