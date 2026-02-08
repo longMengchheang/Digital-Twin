@@ -1,4 +1,12 @@
 import { expect, test, describe } from "bun:test";
+import {
+  applyXPDelta,
+  getRequiredXP,
+  computeDailyStreak,
+  deriveBadges,
+  type BadgeContext,
+  getMoodFromCheckIn
+} from "./progression";
 import { applyXPDelta, getRequiredXP, computeDailyStreak, deriveBadges, type BadgeContext, getMoodFromCheckIn } from "./progression";
 
 describe("getRequiredXP", () => {
