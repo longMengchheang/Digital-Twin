@@ -23,6 +23,7 @@ export async function GET(req: Request) {
       quests.map((quest) => ({
         ...quest,
         _id: String(quest._id),
+        progress: quest.progress ?? quest.ratings?.[0] ?? 0,
       })),
     );
   } catch (error) {

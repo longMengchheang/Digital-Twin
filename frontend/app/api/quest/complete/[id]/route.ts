@@ -36,7 +36,7 @@ export async function PUT(req: Request, { params }: RouteContext) {
 
     const nextCompleted = !quest.completed;
     quest.completed = nextCompleted;
-    quest.ratings = [nextCompleted ? 100 : 0];
+    quest.progress = nextCompleted ? 100 : 0;
     quest.completedDate = nextCompleted ? new Date() : null;
     await quest.save();
 

@@ -18,7 +18,6 @@ interface Quest {
   id: string;
   goal: string;
   duration: string;
-  ratings: number[];
   progress: number;
   completed: boolean;
   createdAt: string;
@@ -112,7 +111,7 @@ export default function QuestLogPage() {
           _id: string;
           goal: string;
           duration: string;
-          ratings?: number[];
+          progress?: number;
           completed?: boolean;
           date?: string;
           createdAt?: string;
@@ -121,8 +120,7 @@ export default function QuestLogPage() {
           id: quest._id,
           goal: quest.goal,
           duration: quest.duration,
-          ratings: quest.ratings ?? [0],
-          progress: Number(quest.ratings?.[0] ?? 0),
+          progress: Number(quest.progress ?? 0),
           completed: Boolean(quest.completed),
           createdAt: quest.date ?? quest.createdAt ?? new Date().toISOString(),
           completedDate: quest.completedDate,
@@ -160,8 +158,7 @@ export default function QuestLogPage() {
         id: quest._id,
         goal: quest.goal,
         duration: quest.duration,
-        ratings: quest.ratings ?? [0],
-        progress: Number(quest.ratings?.[0] ?? 0),
+        progress: Number(quest.progress ?? 0),
         completed: Boolean(quest.completed),
         createdAt: quest.date ?? new Date().toISOString(),
       };
@@ -217,7 +214,7 @@ export default function QuestLogPage() {
       );
 
       const updatedQuest = response.data?.quest;
-      updateQuestState(id, Number(updatedQuest?.ratings?.[0] ?? normalizedProgress), Boolean(updatedQuest?.completed));
+      updateQuestState(id, Number(updatedQuest?.progress ?? normalizedProgress), Boolean(updatedQuest?.completed));
     } catch {
       addToast("Update failed", "Could not update quest progress.", "error");
     }
@@ -235,7 +232,7 @@ export default function QuestLogPage() {
       );
 
       const updatedQuest = response.data?.quest;
-      updateQuestState(id, Number(updatedQuest?.ratings?.[0] ?? 0), Boolean(updatedQuest?.completed));
+      updateQuestState(id, Number(updatedQuest?.progress ?? 0), Boolean(updatedQuest?.completed));
     } catch {
       addToast("Completion failed", "Could not update quest completion.", "error");
     }
