@@ -1,5 +1,4 @@
 import { expect, test, describe } from "bun:test";
-import { applyXPDelta, getMoodFromCheckIn } from "./progression";
 
 describe("applyXPDelta", () => {
   test("should gain XP without leveling up", () => {
