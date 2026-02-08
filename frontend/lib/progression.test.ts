@@ -1,5 +1,5 @@
 import { expect, test, describe } from "bun:test";
-import { applyXPDelta } from "./progression";
+import { applyXPDelta, normalizeProgressState } from "./progression";
 
 describe("applyXPDelta", () => {
   test("should gain XP without leveling up", () => {
@@ -103,6 +103,109 @@ describe("applyXPDelta", () => {
     expect(result).toEqual({
       level: 1,
       currentXP: 20,
+      requiredXP: 100,
+    });
+  });
+});
+
+describe("normalizeProgressState", () => {
+  test("should return valid input as-is", () => {
+    const input = { level: 2, currentXP: 50, requiredXP: 125 };
+    expect(normalizeProgressState(input)).toEqual(input);
+  });
+
+  test("should handle null input", () => {
+    expect(normalizeProgressState(null)).toEqual({
+      level: 1,
+      currentXP: 0,
+      requiredXP: 100,
+    });
+  });
+
+  test("should handle undefined input", () => {
+    expect(normalizeProgressState(undefined)).toEqual({
+      level: 1,
+      currentXP: 0,
+      requiredXP: 100,
+    });
+  });
+
+  test("should fill in defaults for empty object", () => {
+    expect(normalizeProgressState({})).toEqual({
+      level: 1,
+      currentXP: 0,
+      requiredXP: 100,
+    });
+  });
+
+  test("should handle partial input (missing requiredXP and currentXP)", () => {
+    expect(normalizeProgressState({ level: 2 })).toEqual({
+      level: 2,
+      currentXP: 0,
+      requiredXP: 125, // 100 + (2-1)*25
+    });
+  });
+
+  test("should clamp negative level to 1", () => {
+    expect(normalizeProgressState({ level: -5 })).toEqual({
+      level: 1,
+      currentXP: 0,
+      requiredXP: 100,
+    });
+  });
+
+  test("should default non-finite level to 1", () => {
+    expect(normalizeProgressState({ level: Infinity })).toEqual({
+      level: 1,
+      currentXP: 0,
+      requiredXP: 100,
+    });
+  });
+
+  test("should clamp negative requiredXP", () => {
+    expect(normalizeProgressState({ level: 1, requiredXP: -50 })).toEqual({
+      level: 1,
+      currentXP: 0,
+      requiredXP: 100,
+    });
+  });
+
+  test("should recalculate non-finite requiredXP", () => {
+    expect(normalizeProgressState({ level: 2, requiredXP: Infinity })).toEqual({
+      level: 2,
+      currentXP: 0,
+      requiredXP: 125,
+    });
+  });
+
+  test("should clamp negative currentXP to 0", () => {
+    expect(normalizeProgressState({ level: 1, currentXP: -10 })).toEqual({
+      level: 1,
+      currentXP: 0,
+      requiredXP: 100,
+    });
+  });
+
+  test("should default non-finite currentXP to 0", () => {
+    expect(normalizeProgressState({ level: 1, currentXP: NaN })).toEqual({
+      level: 1,
+      currentXP: 0,
+      requiredXP: 100,
+    });
+  });
+
+  test("should clamp currentXP to requiredXP", () => {
+    expect(normalizeProgressState({ level: 1, currentXP: 200, requiredXP: 100 })).toEqual({
+      level: 1,
+      currentXP: 100,
+      requiredXP: 100,
+    });
+  });
+
+  test("should floor decimal values", () => {
+    expect(normalizeProgressState({ level: 1.9, currentXP: 10.9, requiredXP: 100.9 })).toEqual({
+      level: 1,
+      currentXP: 10,
       requiredXP: 100,
     });
   });
