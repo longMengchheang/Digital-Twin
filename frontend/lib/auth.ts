@@ -1,4 +1,6 @@
 import jwt from 'jsonwebtoken';
+import { NextResponse } from 'next/server';
+import { unauthorized } from './api-response';
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET is not defined');
@@ -37,4 +39,16 @@ export function verifyToken(req: Request): DecodedUser | null {
   } catch {
     return null;
   }
+}
+
+export function withAuth<T = any>(
+  handler: (req: Request, context: T, user: DecodedUser) => Promise<NextResponse>
+) {
+  return async (req: Request, context: T) => {
+    const user = verifyToken(req);
+    if (!user) {
+      return unauthorized();
+    }
+    return handler(req, context, user);
+  };
 }
