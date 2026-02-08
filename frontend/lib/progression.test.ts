@@ -27,6 +27,8 @@ describe("getRequiredXP", () => {
     expect(getRequiredXP(NaN)).toBe(100);
   });
 });
+import { applyXPDelta, computeDailyStreak } from "./progression";
+import { applyXPDelta, deriveBadges, type BadgeContext } from "./progression";
 
 describe("applyXPDelta", () => {
   test("should gain XP without leveling up", () => {
@@ -132,5 +134,204 @@ describe("applyXPDelta", () => {
       currentXP: 20,
       requiredXP: 100,
     });
+  });
+});
+
+describe("computeDailyStreak", () => {
+  test("should return 0 for empty list", () => {
+    expect(computeDailyStreak([])).toBe(0);
+  });
+
+  test("should return 1 for single date", () => {
+    const dates = [new Date("2024-01-01T12:00:00")];
+    expect(computeDailyStreak(dates)).toBe(1);
+  });
+
+  test("should count consecutive days", () => {
+    const dates = [
+      new Date("2024-01-03T10:00:00"),
+      new Date("2024-01-02T10:00:00"),
+      new Date("2024-01-01T10:00:00"),
+    ];
+    expect(computeDailyStreak(dates)).toBe(3);
+  });
+
+  test("should sort dates correctly", () => {
+    const dates = [
+      new Date("2024-01-01T10:00:00"),
+      new Date("2024-01-03T10:00:00"),
+      new Date("2024-01-02T10:00:00"),
+    ];
+    expect(computeDailyStreak(dates)).toBe(3);
+  });
+
+  test("should handle duplicate dates on same day", () => {
+    const dates = [
+      new Date("2024-01-02T10:00:00"),
+      new Date("2024-01-02T15:00:00"), // Duplicate day
+      new Date("2024-01-01T10:00:00"),
+    ];
+    expect(computeDailyStreak(dates)).toBe(2);
+  });
+
+  test("should break streak on missing day", () => {
+    const dates = [
+      new Date("2024-01-05T10:00:00"),
+      new Date("2024-01-04T10:00:00"),
+      // Missing Jan 3rd
+      new Date("2024-01-02T10:00:00"),
+      new Date("2024-01-01T10:00:00"),
+    ];
+    // Streak ends at Jan 4th, looking backwards. 5 -> 4 is consecutive. 4 -> 2 is not.
+    // So streak is 2 (Jan 5, Jan 4).
+    expect(computeDailyStreak(dates)).toBe(2);
+  });
+
+  test("should handle streak spanning across months", () => {
+    const dates = [
+      new Date("2024-02-01T10:00:00"),
+      new Date("2024-01-31T10:00:00"),
+    ];
+    expect(computeDailyStreak(dates)).toBe(2);
+  });
+
+  test("should handle streak spanning across years", () => {
+    const dates = [
+      new Date("2024-01-01T10:00:00"),
+      new Date("2023-12-31T10:00:00"),
+    ];
+    expect(computeDailyStreak(dates)).toBe(2);
+describe("deriveBadges", () => {
+  const baseContext: BadgeContext = {
+    totalQuests: 0,
+    completedQuests: 0,
+    checkInCount: 0,
+    streak: 0,
+    level: 1,
+    hasEarlyCheckIn: false,
+    existingBadges: [],
+  };
+
+  test("should return empty array for initial state", () => {
+    const context: BadgeContext = { ...baseContext };
+    const badges = deriveBadges(context);
+    expect(badges).toEqual([]);
+  });
+
+  test("should earn 'First Quest' badge", () => {
+    const context: BadgeContext = { ...baseContext, totalQuests: 1 };
+    const badges = deriveBadges(context);
+    expect(badges).toContain("First Quest");
+  });
+
+  test("should earn 'Week Warrior' badge", () => {
+    const context: BadgeContext = { ...baseContext, completedQuests: 7 };
+    const badges = deriveBadges(context);
+    expect(badges).toContain("Week Warrior");
+  });
+
+  test("should earn 'Level 10' badge", () => {
+    const context: BadgeContext = { ...baseContext, level: 10 };
+    const badges = deriveBadges(context);
+    expect(badges).toContain("Level 10");
+  });
+
+  test("should earn 'Streak Master' badge", () => {
+    const context: BadgeContext = { ...baseContext, streak: 30 };
+    const badges = deriveBadges(context);
+    expect(badges).toContain("Streak Master");
+  });
+
+  test("should earn 'Mindful' badge", () => {
+    const context: BadgeContext = { ...baseContext, checkInCount: 10 };
+    const badges = deriveBadges(context);
+    expect(badges).toContain("Mindful");
+  });
+
+  test("should earn 'Early Bird' badge", () => {
+    const context: BadgeContext = { ...baseContext, hasEarlyCheckIn: true };
+    const badges = deriveBadges(context);
+    expect(badges).toContain("Early Bird");
+  });
+
+  test("should earn multiple badges simultaneously", () => {
+    const context: BadgeContext = {
+      ...baseContext,
+      totalQuests: 1,
+      completedQuests: 7,
+      level: 10,
+    };
+    const badges = deriveBadges(context);
+    expect(badges).toContain("First Quest");
+    expect(badges).toContain("Week Warrior");
+    expect(badges).toContain("Level 10");
+    expect(badges.length).toBe(3);
+  });
+
+  test("should preserve existing badges", () => {
+    const context: BadgeContext = {
+      ...baseContext,
+      existingBadges: ["Old Badge"],
+      totalQuests: 1,
+    };
+    const badges = deriveBadges(context);
+    expect(badges).toContain("Old Badge");
+    expect(badges).toContain("First Quest");
+  });
+
+  test("should not duplicate existing badges", () => {
+    const context: BadgeContext = {
+      ...baseContext,
+      existingBadges: ["First Quest"],
+      totalQuests: 1,
+    };
+    const badges = deriveBadges(context);
+    expect(badges).toContain("First Quest");
+    expect(badges.filter((b) => b === "First Quest").length).toBe(1);
+describe("getMoodFromCheckIn", () => {
+  test("should return 'Excellent' for scores >= 80%", () => {
+    expect(getMoodFromCheckIn(20, 25)).toEqual({ emoji: '🤩', label: 'Excellent' }); // 80%
+    expect(getMoodFromCheckIn(25, 25)).toEqual({ emoji: '🤩', label: 'Excellent' }); // 100%
+  });
+
+  test("should return 'Great' for scores >= 60% and < 80%", () => {
+    expect(getMoodFromCheckIn(15, 25)).toEqual({ emoji: '😄', label: 'Great' }); // 60%
+    expect(getMoodFromCheckIn(19, 25)).toEqual({ emoji: '😄', label: 'Great' }); // 76%
+  });
+
+  test("should return 'Good' for scores >= 40% and < 60%", () => {
+    expect(getMoodFromCheckIn(10, 25)).toEqual({ emoji: '🙂', label: 'Good' }); // 40%
+    expect(getMoodFromCheckIn(14, 25)).toEqual({ emoji: '🙂', label: 'Good' }); // 56%
+  });
+
+  test("should return 'Neutral' for scores >= 20% and < 40%", () => {
+    expect(getMoodFromCheckIn(5, 25)).toEqual({ emoji: '😐', label: 'Neutral' }); // 20%
+    expect(getMoodFromCheckIn(9, 25)).toEqual({ emoji: '😐', label: 'Neutral' }); // 36%
+  });
+
+  test("should return 'Low' for scores < 20%", () => {
+    expect(getMoodFromCheckIn(0, 25)).toEqual({ emoji: '😟', label: 'Low' }); // 0%
+    expect(getMoodFromCheckIn(4, 25)).toEqual({ emoji: '😟', label: 'Low' }); // 16%
+  });
+
+  test("should handle custom max score", () => {
+    // 80/100 = 80% -> Excellent
+    expect(getMoodFromCheckIn(80, 100)).toEqual({ emoji: '🤩', label: 'Excellent' });
+    // 50/100 = 50% -> Good
+    expect(getMoodFromCheckIn(50, 100)).toEqual({ emoji: '🙂', label: 'Good' });
+  });
+
+  test("should return 'Neutral' if maxScore is 0", () => {
+    expect(getMoodFromCheckIn(10, 0)).toEqual({ emoji: '😐', label: 'Neutral' });
+  });
+
+  test("should return 'Excellent' if score > maxScore", () => {
+    // 30/25 = 120% -> Excellent
+    expect(getMoodFromCheckIn(30, 25)).toEqual({ emoji: '🤩', label: 'Excellent' });
+  });
+
+  test("should return 'Low' if score is negative", () => {
+    // -5/25 = -20% -> Low
+    expect(getMoodFromCheckIn(-5, 25)).toEqual({ emoji: '😟', label: 'Low' });
   });
 });
