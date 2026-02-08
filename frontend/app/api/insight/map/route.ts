@@ -386,7 +386,7 @@ export async function GET(req: Request) {
     const completionRate = questsRaw.length ? doneCount / questsRaw.length : 0;
 
     if (latestQuest) {
-      const progress = clamp(Array.isArray(latestQuest.ratings) ? Number(latestQuest.ratings[0] || 0) : 0, 0, 100);
+      const progress = clamp(Number(latestQuest.progress ?? latestQuest.ratings?.[0] ?? 0), 0, 100);
       const questScore = latestQuest.completed ? 100 : clamp100(progress * 0.8 + completionRate * 20);
       const labelRaw = String(latestQuest.goal || 'Quest').trim() || 'Quest';
       nodes.push({

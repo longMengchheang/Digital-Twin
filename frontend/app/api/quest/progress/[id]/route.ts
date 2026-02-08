@@ -44,9 +44,9 @@ export async function PUT(req: Request, { params }: RouteContext) {
       return NextResponse.json({ msg: 'Quest not found.' }, { status: 404 });
     }
 
-    const previousProgress = Number(Array.isArray(quest.ratings) ? quest.ratings[0] : 0);
+    const previousProgress = Number(quest.progress ?? quest.ratings?.[0] ?? 0);
     const wasCompleted = quest.completed;
-    quest.ratings = [Math.round(progress)];
+    quest.progress = Math.round(progress);
     quest.completed = progress >= 100;
     quest.completedDate = quest.completed ? new Date() : null;
     await quest.save();

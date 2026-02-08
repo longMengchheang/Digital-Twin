@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       userId: user.id,
       goal,
       duration,
-      ratings: [0],
+      progress: 0,
       completed: false,
       completedDate: null,
       date: new Date(),
