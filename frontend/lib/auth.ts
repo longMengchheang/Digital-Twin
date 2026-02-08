@@ -1,6 +1,10 @@
-﻿import jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || '4a8f5b3e2c1d9e7f6a5b4c3d2e1f0a9';
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET is not defined');
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 export interface DecodedUser {
   id: string;
