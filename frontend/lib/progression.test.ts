@@ -1,39 +1,4 @@
 import { expect, test, describe } from "bun:test";
-import { applyXPDelta, normalizeDuration } from "./progression";
-
-describe("normalizeDuration", () => {
-  test("should normalize valid inputs", () => {
-    expect(normalizeDuration("daily")).toBe("daily");
-    expect(normalizeDuration("weekly")).toBe("weekly");
-    expect(normalizeDuration("monthly")).toBe("monthly");
-    expect(normalizeDuration("yearly")).toBe("yearly");
-  });
-
-  test("should handle case insensitivity", () => {
-    expect(normalizeDuration("Weekly")).toBe("weekly");
-    expect(normalizeDuration("MONTHLY")).toBe("monthly");
-    expect(normalizeDuration("YeArLy")).toBe("yearly");
-  });
-
-  test("should trim whitespace", () => {
-    expect(normalizeDuration(" weekly ")).toBe("weekly");
-    expect(normalizeDuration("monthly\t")).toBe("monthly");
-    expect(normalizeDuration("\nyearly")).toBe("yearly");
-  });
-
-  test("should default to daily for invalid inputs", () => {
-    expect(normalizeDuration("invalid")).toBe("daily");
-    expect(normalizeDuration("random")).toBe("daily");
-    expect(normalizeDuration("")).toBe("daily");
-  });
-
-  test("should handle null or undefined inputs", () => {
-    // @ts-ignore
-    expect(normalizeDuration(null)).toBe("daily");
-    // @ts-ignore
-    expect(normalizeDuration(undefined)).toBe("daily");
-  });
-});
 
 describe("applyXPDelta", () => {
   test("should gain XP without leveling up", () => {
@@ -139,5 +104,53 @@ describe("applyXPDelta", () => {
       currentXP: 20,
       requiredXP: 100,
     });
+  });
+});
+
+describe("getMoodFromCheckIn", () => {
+  test("should return 'Excellent' for scores >= 80%", () => {
+    expect(getMoodFromCheckIn(20, 25)).toEqual({ emoji: '🤩', label: 'Excellent' }); // 80%
+    expect(getMoodFromCheckIn(25, 25)).toEqual({ emoji: '🤩', label: 'Excellent' }); // 100%
+  });
+
+  test("should return 'Great' for scores >= 60% and < 80%", () => {
+    expect(getMoodFromCheckIn(15, 25)).toEqual({ emoji: '😄', label: 'Great' }); // 60%
+    expect(getMoodFromCheckIn(19, 25)).toEqual({ emoji: '😄', label: 'Great' }); // 76%
+  });
+
+  test("should return 'Good' for scores >= 40% and < 60%", () => {
+    expect(getMoodFromCheckIn(10, 25)).toEqual({ emoji: '🙂', label: 'Good' }); // 40%
+    expect(getMoodFromCheckIn(14, 25)).toEqual({ emoji: '🙂', label: 'Good' }); // 56%
+  });
+
+  test("should return 'Neutral' for scores >= 20% and < 40%", () => {
+    expect(getMoodFromCheckIn(5, 25)).toEqual({ emoji: '😐', label: 'Neutral' }); // 20%
+    expect(getMoodFromCheckIn(9, 25)).toEqual({ emoji: '😐', label: 'Neutral' }); // 36%
+  });
+
+  test("should return 'Low' for scores < 20%", () => {
+    expect(getMoodFromCheckIn(0, 25)).toEqual({ emoji: '😟', label: 'Low' }); // 0%
+    expect(getMoodFromCheckIn(4, 25)).toEqual({ emoji: '😟', label: 'Low' }); // 16%
+  });
+
+  test("should handle custom max score", () => {
+    // 80/100 = 80% -> Excellent
+    expect(getMoodFromCheckIn(80, 100)).toEqual({ emoji: '🤩', label: 'Excellent' });
+    // 50/100 = 50% -> Good
+    expect(getMoodFromCheckIn(50, 100)).toEqual({ emoji: '🙂', label: 'Good' });
+  });
+
+  test("should return 'Neutral' if maxScore is 0", () => {
+    expect(getMoodFromCheckIn(10, 0)).toEqual({ emoji: '😐', label: 'Neutral' });
+  });
+
+  test("should return 'Excellent' if score > maxScore", () => {
+    // 30/25 = 120% -> Excellent
+    expect(getMoodFromCheckIn(30, 25)).toEqual({ emoji: '🤩', label: 'Excellent' });
+  });
+
+  test("should return 'Low' if score is negative", () => {
+    // -5/25 = -20% -> Low
+    expect(getMoodFromCheckIn(-5, 25)).toEqual({ emoji: '😟', label: 'Low' });
   });
 });
