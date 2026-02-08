@@ -1,9 +1,11 @@
+import type { Mongoose } from 'mongoose';
+
 /* eslint-disable no-var */
 
 declare global {
   var mongoose: {
-    conn: any;
-    promise: any;
+    conn: Mongoose | null;
+    promise: Promise<Mongoose> | null;
   } | undefined;
 }
 
