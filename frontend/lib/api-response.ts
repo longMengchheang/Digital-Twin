@@ -59,3 +59,11 @@ export function serverError(error: unknown, context: string = 'Server error', us
   console.error(`${context}:`, error);
   return errorResponse(userMsg, 500);
 }
+
+/**
+ * Returns a 429 Too Many Requests response.
+ * @param msg Error message (default: 'Too many requests.')
+ */
+export function tooManyRequests(msg: string = 'Too many requests.') {
+  return errorResponse(msg, 429);
+}

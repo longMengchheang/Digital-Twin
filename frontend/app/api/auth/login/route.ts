@@ -3,7 +3,8 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { signToken } from '@/lib/auth';
 import User from '@/lib/models/User';
-import { badRequest, unauthorized, serverError } from '@/lib/api-response';
+import { badRequest, unauthorized, serverError, tooManyRequests } from '@/lib/api-response';
+import { RateLimiter } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,8 +13,17 @@ interface LoginPayload {
   password?: string;
 }
 
+// 5 requests per minute
+const loginLimiter = new RateLimiter(60 * 1000, 5);
+
 export async function POST(req: Request) {
   try {
+    const ip = req.headers.get('x-forwarded-for') || 'unknown';
+
+    if (!loginLimiter.check(ip)) {
+      return tooManyRequests('Too many login attempts. Please try again later.');
+    }
+
     await dbConnect();
 
     const body = (await req.json()) as LoginPayload;

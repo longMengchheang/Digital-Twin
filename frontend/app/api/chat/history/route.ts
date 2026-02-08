@@ -99,22 +99,11 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ msg: 'No token, authorization denied.' }, { status: 401 });
     }
 
-    const conversations = await ChatConversation.find({ userId: user.id }).select('_id').lean();
-    const conversationIds = conversations.map((entry) => entry._id);
-
-    if (!conversationIds.length) {
-      return NextResponse.json({ msg: 'Chat history cleared.' });
-    }
-
-    const messages = await ChatMessage.find({ chatId: { $in: conversationIds }, userId: user.id }).select('_id').lean();
-    const messageIds = messages.map((entry) => entry._id);
-
-    if (messageIds.length) {
-      await ChatSignal.deleteMany({ messageId: { $in: messageIds } });
-    }
-
-    await ChatMessage.deleteMany({ chatId: { $in: conversationIds }, userId: user.id });
-    await ChatConversation.deleteMany({ _id: { $in: conversationIds }, userId: user.id });
+    await Promise.all([
+      ChatSignal.deleteMany({ userId: user.id }),
+      ChatMessage.deleteMany({ userId: user.id }),
+      ChatConversation.deleteMany({ userId: user.id }),
+    ]);
 
     return NextResponse.json({ msg: 'Chat history cleared.' });
   } catch (error) {

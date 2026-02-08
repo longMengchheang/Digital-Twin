@@ -436,7 +436,12 @@ export async function POST(req: Request) {
 
     const userMessageId = String(userMessageDoc._id);
 
-    const [, , , extractedSignals] = await Promise.all([
+    // Fire and forget signal extraction to avoid blocking the UI
+    persistStructuredSignals(user.id, userMessageId, message, companionResult.model).catch((err) => {
+      console.error('Background signal persistence failed:', err);
+    });
+
+    await Promise.all([
       userMessageDoc.save(),
       ChatMessage.create({
         userId: user.id,
@@ -458,7 +463,6 @@ export async function POST(req: Request) {
           },
         },
       ),
-      persistStructuredSignals(user.id, userMessageId, message, companionResult.model),
     ]);
 
     const userMessage = {
@@ -478,7 +482,7 @@ export async function POST(req: Request) {
       messages: [userMessage, aiMessage],
       chatId,
       model: companionResult.model,
-      extractedSignals,
+      extractedSignals: [],
     });
   } catch (error) {
     return serverError(error, 'Error sending message');
