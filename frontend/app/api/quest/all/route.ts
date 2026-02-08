@@ -1,7 +1,8 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
 import Quest from '@/lib/models/Quest';
+import { unauthorized, serverError } from '@/lib/api-response';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,7 @@ export async function GET(req: Request) {
 
     const user = verifyToken(req);
     if (!user) {
-      return NextResponse.json({ msg: 'No token, authorization denied.' }, { status: 401 });
+      return unauthorized('No token, authorization denied.');
     }
 
     const quests = await Quest.find({ userId: user.id })
@@ -25,7 +26,6 @@ export async function GET(req: Request) {
       })),
     );
   } catch (error) {
-    console.error('Fetch quests error:', error);
-    return NextResponse.json({ msg: 'Failed to fetch quests.' }, { status: 500 });
+    return serverError(error, 'Fetch quests error', 'Failed to fetch quests.');
   }
 }

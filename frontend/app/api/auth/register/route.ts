@@ -1,10 +1,11 @@
-﻿import bcrypt from 'bcryptjs';
+import bcrypt from 'bcryptjs';
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { signToken } from '@/lib/auth';
 import { validatePassword, validateEmail } from '@/lib/validation';
 import { getRequiredXP } from '@/lib/progression';
 import User from '@/lib/models/User';
+import { badRequest, conflict, serverError } from '@/lib/api-response';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
     const password = String(body.password || '').trim();
 
     if (!email || !password) {
-      return NextResponse.json({ msg: 'Email and password are required.' }, { status: 400 });
+      return badRequest('Email and password are required.');
     }
 
     const emailValidation = validateEmail(email);
@@ -44,12 +45,12 @@ export async function POST(req: Request) {
 
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.isValid) {
-      return NextResponse.json({ msg: passwordValidation.message }, { status: 400 });
+      return badRequest(passwordValidation.message);
     }
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return NextResponse.json({ msg: 'User already exists.' }, { status: 409 });
+      return conflict('User already exists.');
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -82,7 +83,6 @@ export async function POST(req: Request) {
       { status: 201 },
     );
   } catch (error) {
-    console.error('Register error:', error);
-    return NextResponse.json({ msg: 'Server error.' }, { status: 500 });
+    return serverError(error, 'Register error');
   }
 }
