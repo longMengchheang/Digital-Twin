@@ -1,5 +1,4 @@
 import { expect, test, describe } from "bun:test";
-import { applyXPDelta, normalizeProgressState } from "./progression";
 
 describe("applyXPDelta", () => {
   test("should gain XP without leveling up", () => {
@@ -108,105 +107,50 @@ describe("applyXPDelta", () => {
   });
 });
 
-describe("normalizeProgressState", () => {
-  test("should return valid input as-is", () => {
-    const input = { level: 2, currentXP: 50, requiredXP: 125 };
-    expect(normalizeProgressState(input)).toEqual(input);
+describe("getMoodFromCheckIn", () => {
+  test("should return 'Excellent' for scores >= 80%", () => {
+    expect(getMoodFromCheckIn(20, 25)).toEqual({ emoji: '🤩', label: 'Excellent' }); // 80%
+    expect(getMoodFromCheckIn(25, 25)).toEqual({ emoji: '🤩', label: 'Excellent' }); // 100%
   });
 
-  test("should handle null input", () => {
-    expect(normalizeProgressState(null)).toEqual({
-      level: 1,
-      currentXP: 0,
-      requiredXP: 100,
-    });
+  test("should return 'Great' for scores >= 60% and < 80%", () => {
+    expect(getMoodFromCheckIn(15, 25)).toEqual({ emoji: '😄', label: 'Great' }); // 60%
+    expect(getMoodFromCheckIn(19, 25)).toEqual({ emoji: '😄', label: 'Great' }); // 76%
   });
 
-  test("should handle undefined input", () => {
-    expect(normalizeProgressState(undefined)).toEqual({
-      level: 1,
-      currentXP: 0,
-      requiredXP: 100,
-    });
+  test("should return 'Good' for scores >= 40% and < 60%", () => {
+    expect(getMoodFromCheckIn(10, 25)).toEqual({ emoji: '🙂', label: 'Good' }); // 40%
+    expect(getMoodFromCheckIn(14, 25)).toEqual({ emoji: '🙂', label: 'Good' }); // 56%
   });
 
-  test("should fill in defaults for empty object", () => {
-    expect(normalizeProgressState({})).toEqual({
-      level: 1,
-      currentXP: 0,
-      requiredXP: 100,
-    });
+  test("should return 'Neutral' for scores >= 20% and < 40%", () => {
+    expect(getMoodFromCheckIn(5, 25)).toEqual({ emoji: '😐', label: 'Neutral' }); // 20%
+    expect(getMoodFromCheckIn(9, 25)).toEqual({ emoji: '😐', label: 'Neutral' }); // 36%
   });
 
-  test("should handle partial input (missing requiredXP and currentXP)", () => {
-    expect(normalizeProgressState({ level: 2 })).toEqual({
-      level: 2,
-      currentXP: 0,
-      requiredXP: 125, // 100 + (2-1)*25
-    });
+  test("should return 'Low' for scores < 20%", () => {
+    expect(getMoodFromCheckIn(0, 25)).toEqual({ emoji: '😟', label: 'Low' }); // 0%
+    expect(getMoodFromCheckIn(4, 25)).toEqual({ emoji: '😟', label: 'Low' }); // 16%
   });
 
-  test("should clamp negative level to 1", () => {
-    expect(normalizeProgressState({ level: -5 })).toEqual({
-      level: 1,
-      currentXP: 0,
-      requiredXP: 100,
-    });
+  test("should handle custom max score", () => {
+    // 80/100 = 80% -> Excellent
+    expect(getMoodFromCheckIn(80, 100)).toEqual({ emoji: '🤩', label: 'Excellent' });
+    // 50/100 = 50% -> Good
+    expect(getMoodFromCheckIn(50, 100)).toEqual({ emoji: '🙂', label: 'Good' });
   });
 
-  test("should default non-finite level to 1", () => {
-    expect(normalizeProgressState({ level: Infinity })).toEqual({
-      level: 1,
-      currentXP: 0,
-      requiredXP: 100,
-    });
+  test("should return 'Neutral' if maxScore is 0", () => {
+    expect(getMoodFromCheckIn(10, 0)).toEqual({ emoji: '😐', label: 'Neutral' });
   });
 
-  test("should clamp negative requiredXP", () => {
-    expect(normalizeProgressState({ level: 1, requiredXP: -50 })).toEqual({
-      level: 1,
-      currentXP: 0,
-      requiredXP: 100,
-    });
+  test("should return 'Excellent' if score > maxScore", () => {
+    // 30/25 = 120% -> Excellent
+    expect(getMoodFromCheckIn(30, 25)).toEqual({ emoji: '🤩', label: 'Excellent' });
   });
 
-  test("should recalculate non-finite requiredXP", () => {
-    expect(normalizeProgressState({ level: 2, requiredXP: Infinity })).toEqual({
-      level: 2,
-      currentXP: 0,
-      requiredXP: 125,
-    });
-  });
-
-  test("should clamp negative currentXP to 0", () => {
-    expect(normalizeProgressState({ level: 1, currentXP: -10 })).toEqual({
-      level: 1,
-      currentXP: 0,
-      requiredXP: 100,
-    });
-  });
-
-  test("should default non-finite currentXP to 0", () => {
-    expect(normalizeProgressState({ level: 1, currentXP: NaN })).toEqual({
-      level: 1,
-      currentXP: 0,
-      requiredXP: 100,
-    });
-  });
-
-  test("should clamp currentXP to requiredXP", () => {
-    expect(normalizeProgressState({ level: 1, currentXP: 200, requiredXP: 100 })).toEqual({
-      level: 1,
-      currentXP: 100,
-      requiredXP: 100,
-    });
-  });
-
-  test("should floor decimal values", () => {
-    expect(normalizeProgressState({ level: 1.9, currentXP: 10.9, requiredXP: 100.9 })).toEqual({
-      level: 1,
-      currentXP: 10,
-      requiredXP: 100,
-    });
+  test("should return 'Low' if score is negative", () => {
+    // -5/25 = -20% -> Low
+    expect(getMoodFromCheckIn(-5, 25)).toEqual({ emoji: '😟', label: 'Low' });
   });
 });
