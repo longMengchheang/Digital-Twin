@@ -1,6 +1,6 @@
 ﻿import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { verifyToken } from '@/lib/auth';
+import { withAuth } from '@/lib/auth';
 import { computeDailyStreak, deriveBadges, getMoodFromCheckIn } from '@/lib/progression';
 import CheckIn from '@/lib/models/CheckIn';
 import Quest from '@/lib/models/Quest';
@@ -72,14 +72,9 @@ async function buildProfile(userId: string) {
   };
 }
 
-export async function GET(req: Request) {
+export const GET = withAuth(async (req, _context, user) => {
   try {
     await dbConnect();
-
-    const user = verifyToken(req);
-    if (!user) {
-      return NextResponse.json({ msg: 'No token, authorization denied.' }, { status: 401 });
-    }
 
     const profile = await buildProfile(user.id);
     if (!profile) {
@@ -91,16 +86,11 @@ export async function GET(req: Request) {
     console.error('Profile fetch error:', error);
     return NextResponse.json({ msg: 'Server error.' }, { status: 500 });
   }
-}
+});
 
-export async function PUT(req: Request) {
+export const PUT = withAuth(async (req, _context, authUser) => {
   try {
     await dbConnect();
-
-    const authUser = verifyToken(req);
-    if (!authUser) {
-      return NextResponse.json({ msg: 'No token, authorization denied.' }, { status: 401 });
-    }
 
     const user = await User.findById(authUser.id);
     if (!user) {
@@ -161,4 +151,4 @@ export async function PUT(req: Request) {
     console.error('Profile update error:', error);
     return NextResponse.json({ msg: 'Server error.' }, { status: 500 });
   }
-}
+});
