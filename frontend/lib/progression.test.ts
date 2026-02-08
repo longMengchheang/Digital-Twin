@@ -1,5 +1,39 @@
 import { expect, test, describe } from "bun:test";
-import { applyXPDelta } from "./progression";
+import { applyXPDelta, normalizeDuration } from "./progression";
+
+describe("normalizeDuration", () => {
+  test("should normalize valid inputs", () => {
+    expect(normalizeDuration("daily")).toBe("daily");
+    expect(normalizeDuration("weekly")).toBe("weekly");
+    expect(normalizeDuration("monthly")).toBe("monthly");
+    expect(normalizeDuration("yearly")).toBe("yearly");
+  });
+
+  test("should handle case insensitivity", () => {
+    expect(normalizeDuration("Weekly")).toBe("weekly");
+    expect(normalizeDuration("MONTHLY")).toBe("monthly");
+    expect(normalizeDuration("YeArLy")).toBe("yearly");
+  });
+
+  test("should trim whitespace", () => {
+    expect(normalizeDuration(" weekly ")).toBe("weekly");
+    expect(normalizeDuration("monthly\t")).toBe("monthly");
+    expect(normalizeDuration("\nyearly")).toBe("yearly");
+  });
+
+  test("should default to daily for invalid inputs", () => {
+    expect(normalizeDuration("invalid")).toBe("daily");
+    expect(normalizeDuration("random")).toBe("daily");
+    expect(normalizeDuration("")).toBe("daily");
+  });
+
+  test("should handle null or undefined inputs", () => {
+    // @ts-ignore
+    expect(normalizeDuration(null)).toBe("daily");
+    // @ts-ignore
+    expect(normalizeDuration(undefined)).toBe("daily");
+  });
+});
 
 describe("applyXPDelta", () => {
   test("should gain XP without leveling up", () => {
