@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { signToken } from '@/lib/auth';
-import { validatePassword } from '@/lib/validation';
+import { validatePassword, validateEmail } from '@/lib/validation';
 import { getRequiredXP } from '@/lib/progression';
 import User from '@/lib/models/User';
 
@@ -35,6 +35,11 @@ export async function POST(req: Request) {
 
     if (!email || !password) {
       return NextResponse.json({ msg: 'Email and password are required.' }, { status: 400 });
+    }
+
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      return NextResponse.json({ msg: emailValidation.message }, { status: 400 });
     }
 
     const passwordValidation = validatePassword(password);
