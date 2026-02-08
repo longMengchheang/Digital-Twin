@@ -565,33 +565,49 @@ export async function GET(req: Request) {
     );
 
     const ts = new Date();
-    await BehaviorConnection.deleteMany({ userId: authUser.id });
-    await BehaviorNode.deleteMany({ userId: authUser.id });
+
     if (nodes.length) {
-      await BehaviorNode.insertMany(nodes.map((n) => ({
-        userId: authUser.id,
-        nodeKey: n.id,
-        nodeType: dbNodeType(n.type),
-        label: n.label,
-        strength: n.score,
-        occurrences: n.occurrences,
-        lastUpdated: ts,
-        createdAt: ts,
-        updatedAt: ts,
-      })));
+      const nodeOps = nodes.map((n) => ({
+        updateOne: {
+          filter: { userId: authUser.id, nodeKey: n.id },
+          update: {
+            $set: {
+              nodeType: dbNodeType(n.type),
+              label: n.label,
+              strength: n.score,
+              occurrences: n.occurrences,
+              lastUpdated: ts,
+              updatedAt: ts,
+            },
+            $setOnInsert: { createdAt: ts },
+          },
+          upsert: true,
+        },
+      }));
+      await BehaviorNode.bulkWrite(nodeOps);
     }
+
     if (filteredEdges.length) {
-      await BehaviorConnection.insertMany(filteredEdges.map((e) => ({
-        userId: authUser.id,
-        fromNodeKey: e.source,
-        toNodeKey: e.target,
-        weight: e.score,
-        reason: e.reason,
-        lastUpdated: ts,
-        createdAt: ts,
-        updatedAt: ts,
-      })));
+      const edgeOps = filteredEdges.map((e) => ({
+        updateOne: {
+          filter: { userId: authUser.id, fromNodeKey: e.source, toNodeKey: e.target },
+          update: {
+            $set: {
+              weight: e.score,
+              reason: e.reason,
+              lastUpdated: ts,
+              updatedAt: ts,
+            },
+            $setOnInsert: { createdAt: ts },
+          },
+          upsert: true,
+        },
+      }));
+      await BehaviorConnection.bulkWrite(edgeOps);
     }
+
+    await BehaviorNode.deleteMany({ userId: authUser.id, lastUpdated: { $lt: ts } });
+    await BehaviorConnection.deleteMany({ userId: authUser.id, lastUpdated: { $lt: ts } });
 
     const suggestions = nodes.map((n) => n.suggestion).filter((v, i, arr) => v && arr.indexOf(v) === i).slice(0, 4);
     const stress = statsMap.get('stress');
