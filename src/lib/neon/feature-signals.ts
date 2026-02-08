@@ -1,6 +1,6 @@
 import { getNeonDb } from '@/lib/neon/db';
 import { featureSignals } from '@/lib/neon/schema';
-import { normalizeSignalType } from '@/lib/chatSignals';
+import { normalizeSignalType } from '@/lib/chat-signals';
 
 type FeatureSignalSource =
   | 'daily_pulse'

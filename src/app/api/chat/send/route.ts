@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
-import { CHAT_SIGNAL_TYPES, parseSignalResponseText } from '@/lib/chatSignals';
+import { CHAT_SIGNAL_TYPES, parseSignalResponseText } from '@/lib/chat-signals';
 import dbConnect from '@/lib/db';
 import ChatConversation from '@/lib/models/ChatConversation';
 import ChatMessage from '@/lib/models/ChatMessage';

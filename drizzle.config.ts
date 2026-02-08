@@ -1,7 +1,7 @@
 import type { Config } from 'drizzle-kit';
 
 export default {
-  schema: './lib/neon/schema.ts',
+  schema: './src/lib/neon/schema.ts',
   out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: {
