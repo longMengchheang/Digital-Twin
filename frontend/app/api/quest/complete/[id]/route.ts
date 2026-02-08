@@ -4,7 +4,7 @@ import dbConnect from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
 import { normalizeDuration, QUEST_XP_REWARD } from '@/lib/progression';
 import { adjustUserXP } from '@/lib/user-progress';
-import { recordFeatureSignals } from '@/lib/neon/feature-signals';
+import { recordFeatureSignals } from '@/lib/feature-signals';
 import Quest from '@/lib/models/Quest';
 
 export const dynamic = 'force-dynamic';

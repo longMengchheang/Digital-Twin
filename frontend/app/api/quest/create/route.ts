@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
 import { normalizeDuration } from '@/lib/progression';
-import { recordFeatureSignals } from '@/lib/neon/feature-signals';
+import { recordFeatureSignals } from '@/lib/feature-signals';
 import Quest from '@/lib/models/Quest';
 
 export const dynamic = 'force-dynamic';

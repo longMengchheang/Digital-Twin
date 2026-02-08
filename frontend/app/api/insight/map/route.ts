@@ -1,13 +1,14 @@
-import { and, desc, eq, gte } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { verifyToken } from '@/lib/auth';
 import { normalizeSignalType } from '@/lib/chatSignals';
+import BehaviorConnection from '@/lib/models/BehaviorConnection';
+import BehaviorNode from '@/lib/models/BehaviorNode';
+import ChatSignal from '@/lib/models/ChatSignal';
 import CheckIn from '@/lib/models/CheckIn';
+import FeatureSignal from '@/lib/models/FeatureSignal';
 import Quest from '@/lib/models/Quest';
 import User from '@/lib/models/User';
-import { getNeonDb } from '@/lib/neon/db';
-import { behaviorConnections, behaviorNodes, chatSignals, featureSignals } from '@/lib/neon/schema';
 
 export const dynamic = 'force-dynamic';
 
@@ -222,32 +223,26 @@ export async function GET(req: Request) {
     const startPrev7d = shiftDays(today, -13);
     const start30d = shiftDays(today, -29);
 
-    const db = await getNeonDb();
-
     const [user, checkInsRaw, questsRaw, chatRaw, featureRaw, prevNodes, prevEdges] = await Promise.all([
       User.findById(authUser.id).select('level').lean(),
       CheckIn.find({ userId: authUser.id, date: { $gte: start30d } }).sort({ date: -1 }).lean(),
       Quest.find({ userId: authUser.id }).sort({ date: -1 }).limit(120).lean(),
-      db
-        .select({ signalType: chatSignals.signalType, intensity: chatSignals.intensity, confidence: chatSignals.confidence, createdAt: chatSignals.createdAt })
-        .from(chatSignals)
-        .where(and(eq(chatSignals.userId, authUser.id), gte(chatSignals.createdAt, start30d)))
-        .orderBy(desc(chatSignals.createdAt))
-        .limit(1600),
-      db
-        .select({ source: featureSignals.source, signalType: featureSignals.signalType, intensity: featureSignals.intensity, confidence: featureSignals.confidence, createdAt: featureSignals.createdAt })
-        .from(featureSignals)
-        .where(and(eq(featureSignals.userId, authUser.id), gte(featureSignals.createdAt, start30d)))
-        .orderBy(desc(featureSignals.createdAt))
-        .limit(1600),
-      db
-        .select({ nodeKey: behaviorNodes.nodeKey, label: behaviorNodes.label, strength: behaviorNodes.strength, occurrences: behaviorNodes.occurrences })
-        .from(behaviorNodes)
-        .where(eq(behaviorNodes.userId, authUser.id)),
-      db
-        .select({ fromNodeKey: behaviorConnections.fromNodeKey, toNodeKey: behaviorConnections.toNodeKey, weight: behaviorConnections.weight })
-        .from(behaviorConnections)
-        .where(eq(behaviorConnections.userId, authUser.id)),
+      ChatSignal.find({ userId: authUser.id, createdAt: { $gte: start30d } })
+        .select('signalType intensity confidence createdAt')
+        .sort({ createdAt: -1 })
+        .limit(1600)
+        .lean(),
+      FeatureSignal.find({ userId: authUser.id, createdAt: { $gte: start30d } })
+        .select('source signalType intensity confidence createdAt')
+        .sort({ createdAt: -1 })
+        .limit(1600)
+        .lean(),
+      BehaviorNode.find({ userId: authUser.id })
+        .select('nodeKey label strength occurrences')
+        .lean(),
+      BehaviorConnection.find({ userId: authUser.id })
+        .select('fromNodeKey toNodeKey weight')
+        .lean(),
     ]);
 
     if (!user) {
@@ -570,10 +565,10 @@ export async function GET(req: Request) {
     );
 
     const ts = new Date();
-    await db.delete(behaviorConnections).where(eq(behaviorConnections.userId, authUser.id));
-    await db.delete(behaviorNodes).where(eq(behaviorNodes.userId, authUser.id));
+    await BehaviorConnection.deleteMany({ userId: authUser.id });
+    await BehaviorNode.deleteMany({ userId: authUser.id });
     if (nodes.length) {
-      await db.insert(behaviorNodes).values(nodes.map((n) => ({
+      await BehaviorNode.insertMany(nodes.map((n) => ({
         userId: authUser.id,
         nodeKey: n.id,
         nodeType: dbNodeType(n.type),
@@ -586,7 +581,7 @@ export async function GET(req: Request) {
       })));
     }
     if (filteredEdges.length) {
-      await db.insert(behaviorConnections).values(filteredEdges.map((e) => ({
+      await BehaviorConnection.insertMany(filteredEdges.map((e) => ({
         userId: authUser.id,
         fromNodeKey: e.source,
         toNodeKey: e.target,

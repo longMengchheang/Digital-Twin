@@ -1,9 +1,11 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import mongoose from 'mongoose';
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { CHAT_SIGNAL_TYPES, parseSignalResponseText } from '@/lib/chatSignals';
-import { getNeonDb } from '@/lib/neon/db';
-import { chatConversations, chatMessages, chatSignals } from '@/lib/neon/schema';
+import dbConnect from '@/lib/db';
+import ChatConversation from '@/lib/models/ChatConversation';
+import ChatMessage from '@/lib/models/ChatMessage';
+import ChatSignal from '@/lib/models/ChatSignal';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,10 +41,8 @@ interface GeminiGenerationResult {
   finishReason?: string;
 }
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function isUuid(value: string): boolean {
-  return UUID_PATTERN.test(value);
+function isObjectId(value: string): boolean {
+  return mongoose.Types.ObjectId.isValid(value);
 }
 
 function shorten(value: string, maxLength: number): string {
@@ -314,7 +314,6 @@ async function persistStructuredSignals(
   preferredModel?: string,
 ) {
   try {
-    const db = await getNeonDb();
     const extractionPayload = buildSignalPayload(userMessage);
     const extraction = await tryGeminiWithFallback(extractionPayload, preferredModel);
     const signals = parseSignalResponseText(extraction.text);
@@ -323,17 +322,29 @@ async function persistStructuredSignals(
       return [];
     }
 
-    await db.insert(chatSignals)
-      .values(
-        signals.map((signal) => ({
-          userId,
-          messageId,
-          signalType: signal.signalType,
-          intensity: signal.intensity,
-          confidence: signal.confidence,
-        })),
-      )
-      .onConflictDoNothing();
+    const timestamp = new Date();
+    const messageObjectId = new mongoose.Types.ObjectId(messageId);
+    await ChatSignal.bulkWrite(
+      signals.map((signal) => ({
+        updateOne: {
+          filter: { messageId: messageObjectId, signalType: signal.signalType },
+          update: {
+            $set: {
+              userId,
+              intensity: signal.intensity,
+              confidence: signal.confidence,
+              updatedAt: timestamp,
+            },
+            $setOnInsert: {
+              messageId: messageObjectId,
+              signalType: signal.signalType,
+              createdAt: timestamp,
+            },
+          },
+          upsert: true,
+        },
+      })),
+    );
 
     return signals;
   } catch (error) {
@@ -344,7 +355,7 @@ async function persistStructuredSignals(
 
 export async function POST(req: Request) {
   try {
-    const db = await getNeonDb();
+    await dbConnect();
 
     const user = verifyToken(req);
     if (!user) {
@@ -365,42 +376,33 @@ export async function POST(req: Request) {
     let chatId = requestedChatId;
 
     if (chatId) {
-      if (!isUuid(chatId)) {
+      if (!isObjectId(chatId)) {
         return NextResponse.json({ msg: 'Invalid chat id.' }, { status: 400 });
       }
 
-      const existingChat = await db.select({ id: chatConversations.id })
-        .from(chatConversations)
-        .where(and(eq(chatConversations.id, chatId), eq(chatConversations.userId, user.id)))
-        .limit(1);
-
-      if (!existingChat.length) {
+      const existingChat = await ChatConversation.findOne({ _id: chatId, userId: user.id }).select('_id').lean();
+      if (!existingChat) {
         return NextResponse.json({ msg: 'Chat not found.' }, { status: 404 });
       }
     } else {
-      const created = await db.insert(chatConversations)
-        .values({
-          userId: user.id,
-          title: shorten(message, 44) || 'New Conversation',
-          lastMessagePreview: shorten(message, 88),
-          messageCount: 0,
-        })
-        .returning({ id: chatConversations.id });
+      const created = await ChatConversation.create({
+        userId: user.id,
+        title: shorten(message, 44) || 'New Conversation',
+        lastMessagePreview: shorten(message, 88),
+        messageCount: 0,
+      });
 
-      chatId = created[0]?.id || '';
+      chatId = String(created._id || '');
       if (!chatId) {
         return NextResponse.json({ msg: 'Unable to create conversation.' }, { status: 500 });
       }
     }
 
-    const historyRows = await db.select({
-      role: chatMessages.role,
-      content: chatMessages.content,
-    })
-      .from(chatMessages)
-      .where(eq(chatMessages.chatId, chatId))
-      .orderBy(desc(chatMessages.createdAt))
-      .limit(24);
+    const historyRows = await ChatMessage.find({ chatId, userId: user.id })
+      .select('role content')
+      .sort({ createdAt: -1 })
+      .limit(24)
+      .lean();
 
     const history: ConversationEntry[] = [...historyRows]
       .reverse()
@@ -425,39 +427,38 @@ export async function POST(req: Request) {
     const userMessageTimestamp = new Date();
     const aiMessageTimestamp = new Date();
 
-    const insertedUser = await db.insert(chatMessages)
-      .values({
-        userId: user.id,
-        chatId,
-        role: 'user',
-        content: message,
-        createdAt: userMessageTimestamp,
-        updatedAt: userMessageTimestamp,
-      })
-      .returning({
-        id: chatMessages.id,
-        createdAt: chatMessages.createdAt,
-      });
+    const insertedUser = await ChatMessage.create({
+      userId: user.id,
+      chatId,
+      role: 'user',
+      content: message,
+      createdAt: userMessageTimestamp,
+      updatedAt: userMessageTimestamp,
+    });
 
-    await db.insert(chatMessages)
-      .values({
-        userId: user.id,
-        chatId,
-        role: 'ai',
-        content: companionResult.text,
-        createdAt: aiMessageTimestamp,
-        updatedAt: aiMessageTimestamp,
-      });
+    await ChatMessage.create({
+      userId: user.id,
+      chatId,
+      role: 'ai',
+      content: companionResult.text,
+      createdAt: aiMessageTimestamp,
+      updatedAt: aiMessageTimestamp,
+    });
 
-    await db.update(chatConversations)
-      .set({
-        updatedAt: aiMessageTimestamp,
-        lastMessagePreview: shorten(companionResult.text || message, 88),
-        messageCount: sql`${chatConversations.messageCount} + 2`,
-      })
-      .where(and(eq(chatConversations.id, chatId), eq(chatConversations.userId, user.id)));
+    await ChatConversation.findOneAndUpdate(
+      { _id: chatId, userId: user.id },
+      {
+        $set: {
+          updatedAt: aiMessageTimestamp,
+          lastMessagePreview: shorten(companionResult.text || message, 88),
+        },
+        $inc: {
+          messageCount: 2,
+        },
+      },
+    );
 
-    const userMessageId = String(insertedUser[0]?.id || '');
+    const userMessageId = String(insertedUser._id || '');
     const extractedSignals = userMessageId
       ? await persistStructuredSignals(user.id, userMessageId, message, companionResult.model)
       : [];
