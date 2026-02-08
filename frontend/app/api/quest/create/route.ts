@@ -4,6 +4,7 @@ import { verifyToken } from '@/lib/auth';
 import { normalizeDuration } from '@/lib/progression';
 import { recordFeatureSignals } from '@/lib/neon/feature-signals';
 import Quest from '@/lib/models/Quest';
+import { badRequest, unauthorized, serverError } from '@/lib/api-response';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,7 @@ export async function POST(req: Request) {
 
     const user = verifyToken(req);
     if (!user) {
-      return NextResponse.json({ msg: 'No token, authorization denied.' }, { status: 401 });
+      return unauthorized('No token, authorization denied.');
     }
 
     const body = (await req.json()) as CreateQuestPayload;
@@ -26,11 +27,11 @@ export async function POST(req: Request) {
     const duration = normalizeDuration(String(body.duration || 'daily'));
 
     if (!goal) {
-      return NextResponse.json({ msg: 'Goal is required.' }, { status: 400 });
+      return badRequest('Goal is required.');
     }
 
     if (goal.length > 100) {
-      return NextResponse.json({ msg: 'Goal must be 100 characters or less.' }, { status: 400 });
+      return badRequest('Goal must be 100 characters or less.');
     }
 
     const quest = new Quest({
@@ -65,8 +66,6 @@ export async function POST(req: Request) {
       quest,
     });
   } catch (error) {
-    console.error('Create quest error:', error);
-    return NextResponse.json({ msg: 'Server error.' }, { status: 500 });
+    return serverError(error, 'Create quest error');
   }
 }
-

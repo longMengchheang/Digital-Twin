@@ -6,6 +6,7 @@ import dbConnect from '@/lib/db';
 import ChatConversation from '@/lib/models/ChatConversation';
 import ChatMessage from '@/lib/models/ChatMessage';
 import ChatSignal from '@/lib/models/ChatSignal';
+import { badRequest, unauthorized, notFound, serverError, errorResponse } from '@/lib/api-response';
 
 export const dynamic = 'force-dynamic';
 
@@ -359,7 +360,7 @@ export async function POST(req: Request) {
 
     const user = verifyToken(req);
     if (!user) {
-      return NextResponse.json({ msg: 'No token, authorization denied.' }, { status: 401 });
+      return unauthorized('No token, authorization denied.');
     }
 
     const body = (await req.json()) as SendPayload;
@@ -367,22 +368,22 @@ export async function POST(req: Request) {
     const requestedChatId = String(body.chatId || '').trim();
 
     if (!message) {
-      return NextResponse.json({ msg: 'Message is required.' }, { status: 400 });
+      return badRequest('Message is required.');
     }
     if (message.length > 4000) {
-      return NextResponse.json({ msg: 'Message is too long.' }, { status: 400 });
+      return badRequest('Message is too long.');
     }
 
     let chatId = requestedChatId;
 
     if (chatId) {
       if (!isObjectId(chatId)) {
-        return NextResponse.json({ msg: 'Invalid chat id.' }, { status: 400 });
+        return badRequest('Invalid chat id.');
       }
 
       const existingChat = await ChatConversation.findOne({ _id: chatId, userId: user.id }).select('_id').lean();
       if (!existingChat) {
-        return NextResponse.json({ msg: 'Chat not found.' }, { status: 404 });
+        return notFound('Chat not found.');
       }
     } else {
       const created = await ChatConversation.create({
@@ -394,7 +395,7 @@ export async function POST(req: Request) {
 
       chatId = String(created._id || '');
       if (!chatId) {
-        return NextResponse.json({ msg: 'Unable to create conversation.' }, { status: 500 });
+        return errorResponse('Unable to create conversation.', 500);
       }
     }
 
@@ -418,10 +419,7 @@ export async function POST(req: Request) {
       companionResult = await ensureReplyQuality(message, companionResult);
     } catch (llmError) {
       console.error('Gemini generation failed:', llmError);
-      return NextResponse.json(
-        { msg: 'AI service is temporarily unavailable. Please try again.' },
-        { status: 502 },
-      );
+      return errorResponse('AI service is temporarily unavailable. Please try again.', 502);
     }
 
     const userMessageTimestamp = new Date();
@@ -483,7 +481,6 @@ export async function POST(req: Request) {
       extractedSignals,
     });
   } catch (error) {
-    console.error('Error sending message:', error);
-    return NextResponse.json({ msg: 'Server error.' }, { status: 500 });
+    return serverError(error, 'Error sending message');
   }
 }
