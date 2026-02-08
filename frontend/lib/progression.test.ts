@@ -1,4 +1,32 @@
 import { expect, test, describe } from "bun:test";
+import { applyXPDelta, getRequiredXP } from "./progression";
+
+describe("getRequiredXP", () => {
+  test("should return base XP for level 1", () => {
+    expect(getRequiredXP(1)).toBe(100);
+  });
+
+  test("should calculate correct XP for higher levels", () => {
+    expect(getRequiredXP(2)).toBe(125);
+    expect(getRequiredXP(5)).toBe(200);
+    expect(getRequiredXP(10)).toBe(325);
+  });
+
+  test("should normalize level less than 1 to level 1", () => {
+    expect(getRequiredXP(0)).toBe(100);
+    expect(getRequiredXP(-5)).toBe(100);
+  });
+
+  test("should handle decimal levels by flooring", () => {
+    expect(getRequiredXP(1.5)).toBe(100); // Level 1
+    expect(getRequiredXP(2.9)).toBe(125); // Level 2
+  });
+
+  test("should handle non-finite numbers by defaulting to level 1", () => {
+    expect(getRequiredXP(Infinity)).toBe(100);
+    expect(getRequiredXP(NaN)).toBe(100);
+  });
+});
 import { applyXPDelta, computeDailyStreak } from "./progression";
 import { applyXPDelta, deriveBadges, type BadgeContext } from "./progression";
 
