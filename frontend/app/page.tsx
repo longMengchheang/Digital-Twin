@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 import { Activity, ArrowRight, BarChart2, MessageCircle, Target, User } from "lucide-react";
+import { validatePassword } from "@/lib/validation";
 
 type FlashType = "success" | "error";
 
@@ -92,9 +93,12 @@ export default function AuthPage() {
       return;
     }
 
-    if (!isLogin && password.trim().length < 6) {
-      setFlash({ type: "error", text: "Password must be at least 6 characters." });
-      return;
+    if (!isLogin) {
+      const passwordValidation = validatePassword(password.trim());
+      if (!passwordValidation.isValid) {
+        setFlash({ type: "error", text: passwordValidation.message });
+        return;
+      }
     }
 
     if (redirectTimerRef.current) {
@@ -236,7 +240,7 @@ export default function AuthPage() {
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="At least 6 characters"
+                placeholder="At least 8 chars, uppercase, lowercase, number, symbol"
                 autoComplete={isLogin ? "current-password" : "new-password"}
                 className="input-calm"
                 required
