@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { signToken } from '@/lib/auth';
+import { validatePassword } from '@/lib/validation';
 import { getRequiredXP } from '@/lib/progression';
 import User from '@/lib/models/User';
 
@@ -36,8 +37,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ msg: 'Email and password are required.' }, { status: 400 });
     }
 
-    if (password.length < 6) {
-      return NextResponse.json({ msg: 'Password must be at least 6 characters.' }, { status: 400 });
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      return NextResponse.json({ msg: passwordValidation.message }, { status: 400 });
     }
 
     const existingUser = await User.findOne({ email });
