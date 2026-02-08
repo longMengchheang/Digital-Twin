@@ -1,5 +1,5 @@
 import { expect, test, describe } from "bun:test";
-import { applyXPDelta } from "./progression";
+import { applyXPDelta, computeDailyStreak } from "./progression";
 
 describe("applyXPDelta", () => {
   test("should gain XP without leveling up", () => {
@@ -105,5 +105,72 @@ describe("applyXPDelta", () => {
       currentXP: 20,
       requiredXP: 100,
     });
+  });
+});
+
+describe("computeDailyStreak", () => {
+  test("should return 0 for empty list", () => {
+    expect(computeDailyStreak([])).toBe(0);
+  });
+
+  test("should return 1 for single date", () => {
+    const dates = [new Date("2024-01-01T12:00:00")];
+    expect(computeDailyStreak(dates)).toBe(1);
+  });
+
+  test("should count consecutive days", () => {
+    const dates = [
+      new Date("2024-01-03T10:00:00"),
+      new Date("2024-01-02T10:00:00"),
+      new Date("2024-01-01T10:00:00"),
+    ];
+    expect(computeDailyStreak(dates)).toBe(3);
+  });
+
+  test("should sort dates correctly", () => {
+    const dates = [
+      new Date("2024-01-01T10:00:00"),
+      new Date("2024-01-03T10:00:00"),
+      new Date("2024-01-02T10:00:00"),
+    ];
+    expect(computeDailyStreak(dates)).toBe(3);
+  });
+
+  test("should handle duplicate dates on same day", () => {
+    const dates = [
+      new Date("2024-01-02T10:00:00"),
+      new Date("2024-01-02T15:00:00"), // Duplicate day
+      new Date("2024-01-01T10:00:00"),
+    ];
+    expect(computeDailyStreak(dates)).toBe(2);
+  });
+
+  test("should break streak on missing day", () => {
+    const dates = [
+      new Date("2024-01-05T10:00:00"),
+      new Date("2024-01-04T10:00:00"),
+      // Missing Jan 3rd
+      new Date("2024-01-02T10:00:00"),
+      new Date("2024-01-01T10:00:00"),
+    ];
+    // Streak ends at Jan 4th, looking backwards. 5 -> 4 is consecutive. 4 -> 2 is not.
+    // So streak is 2 (Jan 5, Jan 4).
+    expect(computeDailyStreak(dates)).toBe(2);
+  });
+
+  test("should handle streak spanning across months", () => {
+    const dates = [
+      new Date("2024-02-01T10:00:00"),
+      new Date("2024-01-31T10:00:00"),
+    ];
+    expect(computeDailyStreak(dates)).toBe(2);
+  });
+
+  test("should handle streak spanning across years", () => {
+    const dates = [
+      new Date("2024-01-01T10:00:00"),
+      new Date("2023-12-31T10:00:00"),
+    ];
+    expect(computeDailyStreak(dates)).toBe(2);
   });
 });
